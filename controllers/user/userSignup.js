@@ -1,4 +1,4 @@
-import userModel from '../models/userModel.js'
+import userModel from '../../models/userModel.js'
 import bcrypt from 'bcrypt'
 import crypto from 'crypto'
 import nodemailer from 'nodemailer'
@@ -55,9 +55,9 @@ export const userSignup = async(req, res)=>{
       otp,
     })
 
-    await newUser.save();
+    const savedUser = await newUser.save();
 
-        return res.status(200).json({ message:'User created successfully.' })
+        return res.status(200).json({ message:'User created successfully.' , user:{ email: savedUser.email }})
     } catch (error) {
       res.status(500).json({ message:'User creation failed. Please try again later', error})
     }    

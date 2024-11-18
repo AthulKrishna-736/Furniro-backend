@@ -2,7 +2,9 @@ import express from 'express'
 import mongoose from 'mongoose'
 import dotenv from 'dotenv'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 import userRoute from './routes/userRoute.js'
+
 //load env
 dotenv.config();
 
@@ -23,11 +25,12 @@ mongoose.connect(process.env.MONGODB_URI)
 })
 .catch((error)=>{
     console.log('Connection failed: ',error)
-})
+}) 
 
 //middlewares for project
 app.use(cors(corsOption));
 app.use(express.json());
+app.use(cookieParser());
 
 //user route middleware
 app.use('/api/user',userRoute)

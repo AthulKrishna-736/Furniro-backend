@@ -47,6 +47,3 @@ coverage/
 *.sqlite
 *.sqlite3
 
-#versions
-package-lock.json
-package.json
