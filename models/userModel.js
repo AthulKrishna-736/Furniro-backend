@@ -31,14 +31,11 @@ const userSchema = new mongoose.Schema({
     otpExpireAt:{
         type:Date,
     },
-    isBlock:{
+    isBlocked:{
         type:Boolean,
+        default: false,
     },
-    createdAt:{
-        type:Date,
-        default:Date.now(),
-    }
-})
+}, { timestamps:true })
 
 const userModel = mongoose.model('User',userSchema)
 export default userModel;

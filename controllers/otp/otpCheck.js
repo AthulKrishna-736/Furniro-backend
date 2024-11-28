@@ -1,5 +1,4 @@
-import { now } from "mongoose";
-import userModel from "../models/userModel.js";
+import userModel from "../../models/userModel.js";
 
 export const otpCheck = async(req, res)=>{
     const { otpString } = req.body

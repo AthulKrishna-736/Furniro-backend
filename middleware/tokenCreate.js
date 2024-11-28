@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken'
 dotenv.config();
 
 export const tokenExpireTime = {
-    accessToken: 5, //seconds
-    refreshToken: 15, //seconds
+    accessToken: 900, //seconds
+    refreshToken: 604800, //seconds
 }
 
 export const generateAccessToken = (user)=>{

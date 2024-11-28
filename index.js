@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import userRoute from './routes/userRoute.js'
+import adminRoute from './routes/adminRoute.js'
 
 //load env
 dotenv.config();
@@ -33,7 +34,8 @@ app.use(express.json());
 app.use(cookieParser());
 
 //user route middleware
-app.use('/api/user',userRoute)
+app.use('/api/user', userRoute)
+app.use('/api/admin', adminRoute)
 
 
 app.listen(PORT,()=>{
