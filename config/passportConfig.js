@@ -1,7 +1,8 @@
 import { OAuth2Client } from 'google-auth-library';
+import { google } from 'googleapis';
 import dotenv from 'dotenv';
-import userModel from '../models/userModel.js'; // Your User model
-import { generateAccessToken, generateRefreshToken, setAuthCookies } from '../utils/authUtils.js';
+import userModel from '../models/userModel.js'; 
+import { generateAccessToken, generateRefreshToken, setAuthCookies } from '../middleware/tokenCreate.js';
 
 dotenv.config();
 
@@ -27,41 +28,63 @@ export const googleLogin = async (req, res) => {
   }
 };
 
+
 // Step 2: Handle Google callback
 export const googleCallback = async (req, res) => {
   const { code } = req.query;
 
   try {
-    // Exchange authorization code for tokens
+    // Step 1: Exchange code for tokens
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
 
-    // Get user information from Google
+    // Step 2: Fetch user info
     const userInfoClient = google.oauth2('v2').userinfo;
     const userInfo = await userInfoClient.get({ auth: oAuth2Client });
-    const { email, name, picture } = userInfo.data;
-
-    // Check if the user exists in the database
-    let user = await userModel.findOne({ email });
+    const { email, name } = userInfo.data;
+    console.log('googleuser data = ', userInfo.data)
+    // Step 3: Find or create the user
+    let user = await userModel.findOne({ email:email });
     if (!user) {
-      // If not, create a new user
-      user = await userModel.create({ email, name, picture });
+      console.log('Creating new user...');
+      
+      // Split name into first and last name
+      const [firstName, lastName] = name.split(' ');
+
+      // Create new user without the OTP and picture
+      user = await userModel.create({
+        firstName: firstName || '', 
+        lastName: lastName || '',
+        email,
+        password: null, 
+      });
+
+      console.log('New user created:', user);
+    } else {
+      console.log('User already exists. No need to create.');
     }
 
-    // Step 3: Generate JWT tokens using your utility functions
+    // Step 4: Generate tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Step 4: Set tokens in cookies
+    // Step 5: Set auth cookies
     setAuthCookies(res, accessToken, refreshToken);
 
-    // Step 5: Send response with user details
-    res.status(200).json({ 
-      message: 'Google login successful', 
-      user: { id: user._id, email: user.email, name: user.name, picture }, 
-    });
+    // Step 6: Redirect to the frontend with user details
+    const redirectUrl = `http://localhost:5173/google-success?userId=${user._id}&email=${encodeURIComponent(
+      user.email
+    )}&name=${encodeURIComponent(user.firstName)}&message=${encodeURIComponent(
+      'Google login successful'
+    )}`;
+    res.redirect(redirectUrl);
   } catch (error) {
     console.error('Error during Google callback:', error);
-    res.status(500).json({ message: 'Google login failed', error });
+
+    // Redirect to the frontend with an error message
+    const errorRedirectUrl = `http://localhost:5173/login?error=${encodeURIComponent(
+      'Google login failed'
+    )}`;
+    res.redirect(errorRedirectUrl);
   }
 };
