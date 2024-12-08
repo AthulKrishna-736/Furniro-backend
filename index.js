@@ -1,4 +1,6 @@
 import express from 'express'
+import { createServer } from 'http'
+import { WebSocketServer } from 'ws'
 import mongoose from 'mongoose'
 import dotenv from 'dotenv'
 import cors from 'cors'
@@ -11,6 +13,29 @@ dotenv.config();
 
 const app = express()
 const PORT = process.env.PORT || 5000
+
+const server = createServer(app);
+const wss = new WebSocketServer({ server });
+console.log(`HTTP and WebSocket server running on http://localhost:${PORT}`);
+
+wss.on('connection', (ws) => {
+    console.log('New WebSocket client connected');
+    ws.send('Welcome to the WebSocket server');
+
+    ws.on('message', (message) => {
+        console.log(`Message received: ${message}`);
+        ws.send(`Server echo: ${message}`);
+    });
+
+    ws.on('close', () => {
+        console.log('WebSocket client disconnected');
+    });
+
+    ws.on('error', (error) => {
+        console.log('WebSocket error:', error);
+    });
+});
+
 
 //cors setting
 const corsOption = {

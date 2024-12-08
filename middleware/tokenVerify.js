@@ -7,8 +7,8 @@ export const tokenVerify = async(req, res, next)=>{
     const accesstoken = req.cookies.accessToken;
     const refreshtoken = req.cookies.refreshToken;
 
-    console.log('accessToken in middleware = ', accesstoken)
-    console.log('refreshToken in middleware = ', refreshtoken)
+    // console.log('accessToken in middleware = ', accesstoken)
+    // console.log('refreshToken in middleware = ', refreshtoken)
 
     if(!accesstoken){
         return res.status(401).json({ message:'Access token not provided' });

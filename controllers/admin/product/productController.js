@@ -40,9 +40,6 @@ export const getAllProducts = async (req, res) => {
       if(!products.length){
         return res.status(200).json({ message:'No products available' })
       }
-
-      console.log('products console: ', products.category)
-      console.log('products console: ', products.name)
   
       res.status(200).json({ message:"got all products", products });
     } catch (error) {
@@ -97,12 +94,6 @@ export const getUserProducts = async (req, res) => {
     if (!filteredProducts.length) {
       return res.status(200).json({ message: 'No active products available' });
     }
-
-    // Logging for debugging
-    filteredProducts.forEach(product => {
-      console.log('Product Name:', product.name);
-      console.log('Category Name:', product.category.name);
-    });
 
     // Send response with filtered products
     res.status(200).json({
