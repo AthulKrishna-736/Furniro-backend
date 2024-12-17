@@ -1,28 +1,30 @@
 import userModel from "../../models/userModel.js";
 import bcrypt from 'bcrypt';
 
-export const adminLogin = async (req, res) => {
-    const { email, password } = req.body;
-    try {
-        const user = await userModel.findOne({ email });
+export const adminLogin = async (req, res, next) => {
+  const { email, password } = req.body;
 
-        if (!user) {
-            return res.status(400).json({ message: 'User not found' });
-        }
+  const user = await userModel.findOne({ email }).catch((error) => {
+    console.error('Error finding user:', error);
+    return next({ statusCode: 400, message: 'User not found' });
+  });
 
-        if (!user.isAdmin) {
-            return res.status(403).json({ message: 'Access denied. Admins only.' });
-        }
+  if (!user) {
+    return next({ statusCode: 400, message: 'User not found' });
+  }
 
-        const isPasswordCorrect = await bcrypt.compare(password, user.password);
-        if (!isPasswordCorrect) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
+  if (!user.isAdmin) {
+    return next({ statusCode: 403, message: 'Access denied. Admins only.' });
+  }
 
-        return res.status(200).json({ message: 'Admin login successful' });
+  const isPasswordCorrect = await bcrypt.compare(password, user.password).catch((error) => {
+    console.error('Error comparing passwords:', error);
+    return next({ statusCode: 400, message: 'Invalid credentials' });
+  });
 
-    } catch (error) {
-        console.error('Error during admin login:', error);
-        return res.status(500).json({ message: 'Server error' });
-    }
-}
+  if (!isPasswordCorrect) {
+    return next({ statusCode: 400, message: 'Invalid credentials' });
+  }
+
+  return res.status(200).json({ message: 'Admin login successful' });
+};

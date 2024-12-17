@@ -2,8 +2,6 @@ import { setAuthCookies } from "../../middleware/tokenCreate.js";
 import { generateAccessToken, generateRefreshToken } from "../../middleware/tokenCreate.js";
 import userModel from "../../models/userModel.js";
 import bcrypt from 'bcrypt';
-import crypto from 'crypto'
-import nodemailer from 'nodemailer'
 import dotenv from 'dotenv'
 import { OAuth2Client } from 'google-auth-library'
 
@@ -12,192 +10,210 @@ dotenv.config();
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 //login user
-export const userLogin = async(req, res)=>{
+export const userLogin = async (req, res, next) => {
+  const { email, password } = req.body;
 
-    const { email, password } = req.body;
-    console.log(req.body)
-    try {
-        const user = await userModel.findOne({email})
-        if(!user){
-            return res.status(404).json({ message:'User not found. Please sign up to create an account.' })
-        }
+  const user = await userModel.findOne({ email });
+  if (!user) {
+      return next({ statusCode: 404, message: 'User not found. Please sign up to create an account.' });
+  }
 
-        const isValidPass = await bcrypt.compare(password,user.password);
-        if(!isValidPass){
-            return res.status(401).json({ message:'Invalid credentials' });
-        }
-    
-        const accessToken = generateAccessToken(user);
-        const refreshToken = generateRefreshToken(user);
-        console.log('Token giving when login access == ',accessToken);
-        console.log('Token giving when login refresh == ', refreshToken);
+  const isValidPass = await bcrypt.compare(password, user.password);
+  if (!isValidPass) {
+      return next({ statusCode: 401, message: 'Invalid credentials' });
+  }
 
-        //set cookies for uses login
-        setAuthCookies(res, accessToken, refreshToken);
-        console.log('cookies set successfully')
+  if (user.isBlocked) {
+      return next({ statusCode: 403, message: 'Your account is blocked.' });
+  }
 
-        return res.status(200).json({ message:`Login successful`, user:{ email:user.email, id:user._id }})
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
 
-    } catch (error) {
-        res.status(500).json({ message:'Error while logging in user. Please try again later'})
-    }
-}
+  // Set cookies for user login
+  setAuthCookies(res, accessToken, refreshToken);
+  console.log('Cookies set successfully');
+
+  res.status(200).json({
+      message: 'Login successful',
+      user: { email: user.email, id: user._id },
+  });
+};
 
 
 //logout user
-export const userLogout = async (req, res) => {
-    try {
-        res.clearCookie('accessToken',{
-            httpOnly: true,
-            secure: true,
-            sameSite:'strict',
-        })
-    
-        res.clearCookie('refreshToken',{
-            httpOnly: true,
-            secure: true,
-            sameSite: 'strict'
-        })
+export const userLogout = async (req, res, next) => {
+  res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+  });
 
-        return res.status(200).json({ message: 'Logout successful' });
-    
-    } catch (error) {
-        console.log('error while clearing cookie', error)
-        return res.status(500).json({ message: 'Logout failed' });    }
-}
+  res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+  });
+
+  res.status(200).json({ message: 'Logout successful' });
+};
 
 
 //signup user 
-export const userSignup = async(req, res)=>{
+export const userSignup = async (req, res, next) => {
   const { email, password, firstName, lastName } = req.body;
-  try {
-    const userExist = await userModel.findOne({email});
-    if(userExist){
-      return res.status(400).json( { message: 'Email already exists. Please use a different email.' } )
-    }
 
-    const hashPass = await bcrypt.hash(password,10)
-        
-    const newUser = new userModel({
-      firstName,
-      lastName,
-      email,
-      password:hashPass,
-    })
+  const userExist = await userModel.findOne({ email });
+  if (userExist) {
+    return next({ statusCode: 400, message: "Email already exists. Please use a different email." });
+  }
 
-    const savedUser = await newUser.save();
+  const hashPass = await bcrypt.hash(password, 10);
 
-        return res.status(200).json({ message:'User created successfully.' , user:{ email: savedUser.email }})
-    } catch (error) {
-      res.status(500).json({ message:'User creation failed. Please try again later', error})
-    }    
-}
+  const newUser = new userModel({
+    firstName,
+    lastName,
+    email,
+    password: hashPass,
+  });
+
+  const savedUser = await newUser.save();
+
+  res.status(200).json({ message: "User created successfully.", user: { email: savedUser.email } });
+};
 
 
 //google login 
-export const googleLogin = async (req, res) => {
-  try {
-    const { credential } = req.body;
+export const googleLogin = async (req, res, next) => {
+  const { credential } = req.body;
 
-    const ticket = await client.verifyIdToken({
-      idToken:credential,
+  const ticket = await client.verifyIdToken({
+      idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID,
-    })
+  });
 
-    const { name , email, picture } = ticket.getPayload();
+  const { name, email, picture } = ticket.getPayload();
 
-    let user = await userModel.findOne({ email });
+  let user = await userModel.findOne({ email });
+  console.log('Google Login - User:', user);
 
-    if(!user){
+  if (!user) {
       user = await userModel.create({ name, email });
-    }
+  }
 
-    // Generate access and refresh tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+  // Generate access and refresh tokens
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
 
-    // Set tokens in cookies
-    setAuthCookies(res, accessToken, refreshToken);
+  // Set tokens in cookies
+  setAuthCookies(res, accessToken, refreshToken);
 
-    // Send a success response
-    res.status(200).json({
+  // Send a success response
+  res.status(200).json({
       message: 'Login successful',
       userId: user._id,
       name: user.name,
-    });
-
-  } catch (error) {
-    console.error('Error in Google Login:', error);
-    res.status(500).json({ message: 'Google login failed' });
-  }
-}
+  });
+};
 
 
 //forgotpass
-export const forgotPass = async (req, res) => {
-  try {
-    console.log('req forgot = ', req.body);
+export const forgotPass = async (req, res, next) => {
+  console.log('req forgot = ', req.body);
 
-    const { email } = req.body;
+  const { email } = req.body;
 
-    const user = await userModel.findOne({ email });
+  const user = await userModel.findOne({ email });
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found. Please sign up.' });
-    }
-
-    return res.status(200).json({ success: true, message: 'User found. Proceeding to send OTP.' });
-
-  } catch (error) {
-    console.error('Error during forgot password:', error);
-    return res.status(500).json({ success: false, message: 'An error occurred. Please try again later.' });
+  if (!user) {
+      return next({ statusCode: 404, message: 'User not found. Please sign up.' });
   }
+
+  res.status(200).json({
+      success: true,
+      message: 'User found. Proceeding to send OTP.',
+  });
 };
 
 
 //resetpass
-export const resetPass = async (req, res) => {
-  try {
-    console.log('req body resetpass = ',req.body)
-    const { email, password } = req.body;
+export const resetPass = async (req, res, next) => {
+  console.log('req body resetpass = ', req.body);
+  const { email, password } = req.body;
 
-    const hashPass = await bcrypt.hash(password, 10);
+  const hashPass = await bcrypt.hash(password, 10);
 
-    const response = await userModel.findOneAndUpdate(
-      { email }, 
-      { password: hashPass }, 
+  const response = await userModel.findOneAndUpdate(
+      { email },
+      { password: hashPass },
       { new: true }
-    );
+  );
 
-    console.log('res reset pass = ', response)
-
-    res.status(200).json({ message: 'Password updated successfully!' });
-
-  } catch (error) {
-    console.error('Error resetting password:', error);
-    res.status(500).json({ message: 'An error occurred while resetting the password.' });
+  if (!response) {
+      return next({ statusCode: 404, message: 'User not found. Unable to reset password.' });
   }
-}
+  console.log('res reset pass = ', response);
+  res.status(200).json({ message: 'Password updated successfully!' });
+};
 
 
 //check user
-export const checkUser = async (req, res) => {
-  try {
-    console.log('req body checkuser = ', req.body)
+export const checkUser = async (req, res, next) => {
+  console.log('req body checkuser = ', req.body);
+  const { email } = req.body;
 
-    const { email } = req.body;
+  const user = await userModel.findOne({ email });
 
-    const user = await userModel.findOne({ email })
-
-    if(user){
-      console.log('user already exists')
-      return res.status(404).json({ message:'User already exists. Please login' })
-    }
-
-    res.status(200).json({ message:'user not found. Proceed to signin' })
-
-  } catch (error) {
-    console.log('error happens while checking user', error);
-    res.status(500).json({ message:'Internal server error' });
+  if (user) {
+      return next({ statusCode: 409, message: 'User already exists. Please login.' });
   }
-}
+  res.status(200).json({ message: 'User not found. Proceed to signup.' });
+};
+
+
+//get individual user
+export const getIndividualUser = async (req, res, next) => {
+  const { email } = req.body;
+  console.log('email in getIndividualUser: ', email);
+  console.log('req body of getIndividualUser: ', req.body);
+
+  const user = await userModel.findOne({ email });
+
+  if (!user) {
+      return next({ statusCode: 404, message: 'User not found.' });
+  }
+
+  console.log('User fetched successfully in getIndividualUser.');
+  res.status(200).json({ message: 'User fetched successfully.', user });
+};
+
+
+//update individual user
+export const updateIndividualUser = async (req, res, next) => {
+  const { email, password } = req.body;
+  console.log('req body in updateIndividualUser: ', req.body);
+  console.log('email and password in updateIndividualUser: ', { email, password });
+
+  const user = await userModel.findOne({ email });
+  if (!user) {
+      return next({ statusCode: 404, message: 'User not found.' });
+  }
+
+  if (password && password !== user.password) {
+      console.log('Password has been updated, hashing new password...');
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const updatedUser = await userModel.findOneAndUpdate(
+          { email },
+          { $set: { password: hashedPassword } },
+          { new: true } // Return the updated user
+      );
+
+      console.log('User updated successfully:', updatedUser);
+      return res.status(200).json({ message: 'Password updated successfully.', user: updatedUser });
+  }
+
+  console.log('No changes to password.');
+  res.status(200).json({ message: 'No changes to password.' });
+};
+

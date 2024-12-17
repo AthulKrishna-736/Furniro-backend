@@ -4,32 +4,38 @@ import { addCategory, blockCategory, getCategory, updateCategory } from '../cont
 import { addProduct, blockProducts, editProduct, getAllProducts } from '../controllers/admin/product/productController.js';
 import { adminLogin } from '../controllers/admin/adminLogin.js';
 import { addBanners, editBanner, getBanners } from '../controllers/admin/bannerManage.js';
+import { getAllOrders, updateOrderStatus } from '../controllers/user/orderController.js';
+import { asyncHandler } from '../middleware/asyncHandler.js';
 
 const adminRoute = express.Router();
 
 //admin route
-adminRoute.post('/login', adminLogin);
+adminRoute.post('/login', asyncHandler(adminLogin));
 
 //user management
-adminRoute.get('/getUsers', getUsers);
-adminRoute.patch('/blockUser/:id', blockUser);
+adminRoute.get('/getUsers', asyncHandler(getUsers));
+adminRoute.patch('/blockUser/:id', asyncHandler(blockUser));
 
 //category management
-adminRoute.post('/addCategory', addCategory);
-adminRoute.get('/getCategories', getCategory);
-adminRoute.patch('/blockCategory/:id', blockCategory);
-adminRoute.patch('/updateCategory/:id', updateCategory);
+adminRoute.post('/addCategory', asyncHandler(addCategory));
+adminRoute.get('/getCategories', asyncHandler(getCategory));
+adminRoute.patch('/blockCategory/:id', asyncHandler(blockCategory));
+adminRoute.patch('/updateCategory/:id', asyncHandler(updateCategory));
 
 //product management
-adminRoute.post('/addProducts', addProduct);
-adminRoute.get('/getProducts', getAllProducts);
-adminRoute.patch('/blockProduct/:id', blockProducts);
-adminRoute.put('/updateProduct/:productId', editProduct);
+adminRoute.post('/addProducts', asyncHandler(addProduct));
+adminRoute.get('/getProducts', asyncHandler(getAllProducts));
+adminRoute.patch('/blockProduct/:id', asyncHandler(blockProducts));
+adminRoute.put('/updateProduct/:productId', asyncHandler(editProduct));
 
 //banner management
-adminRoute.get('/getBanners', getBanners );
-adminRoute.post('/addBanners', addBanners);
-adminRoute.patch('/editBanners/:id', editBanner)
+adminRoute.get('/getBanners', asyncHandler(getBanners) );
+adminRoute.post('/addBanners', asyncHandler(addBanners));
+adminRoute.patch('/editBanners/:id', asyncHandler(editBanner));
+
+//orders
+adminRoute.get('/getOrders', asyncHandler(getAllOrders));
+adminRoute.patch('/updateOrderStatus', asyncHandler(updateOrderStatus))
 
 
 export default adminRoute;
