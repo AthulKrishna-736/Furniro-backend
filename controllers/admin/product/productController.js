@@ -69,26 +69,63 @@ export const blockProducts = async (req, res, next) => {
 
 //get user product
 export const getUserProducts = async (req, res, next) => {
-  const products = await productModel.find()
-    .populate('category', 'name isBlocked') 
-    .exec();
+  const { page = 1, limit = 8, sortBy, categoryId } = req.query;
+  console.log('req query in here: ', req.query);
 
-  if (!products.length) {
-    return res.status(200).json({ message: 'No products available' });
+  const skip = (page - 1) * limit;
+
+  const query = { isBlocked: false };
+  if (categoryId) {
+    query.category = categoryId; 
   }
 
-  const filteredProducts = products.filter(product => 
-    !product.isBlocked && product.category && !product.category.isBlocked
-  );
-
-  if (!filteredProducts.length) {
-    return res.status(200).json({ message: 'No active products available' });
+  let sort = {};
+  switch (sortBy) {
+    case 'low-high':
+      sort = { salesPrice: 1 };
+      break;
+    case 'high-low':
+      sort = { salesPrice: -1 };
+      break;
+    case 'new-arrivals':
+      sort = { createdAt: -1 };
+      break;
+    case 'a-z':
+      sort = { name: 1 };
+      break;
+    case 'z-a':
+      sort = { name: -1 };
+      break;
+    default:
+      sort = {}; 
+      break;
   }
 
-  res.status(200).json({
-    message: 'Fetched active products successfully',
-    products: filteredProducts,
-  });
+    const totalProducts = await productModel.countDocuments(query);
+
+    const allProducts = await productModel
+      .find(query)
+      .sort(sort) 
+      .skip(skip)
+      .limit(Number(limit)) 
+      .populate('category', 'name isBlocked');
+
+    // Filter out blocked categories
+    const filteredProducts = allProducts.filter(
+      (product) => product.category && !product.category.isBlocked
+    );
+
+    if (!filteredProducts.length) {
+      return res.status(200).json({ message: 'No active products available' });
+    }
+
+    res.status(200).json({
+      message: 'Fetched active products successfully',
+      products: filteredProducts,
+      totalProducts,
+      totalPages: Math.ceil(totalProducts / limit),
+      currentPage: Number(page),
+    });
 };
 
 //product details
@@ -115,7 +152,8 @@ export const productDetails = async (req, res, next) => {
 //edit product 
 export const editProduct = async (req, res, next) => {
   const { productId } = req.params; 
-  const { name, description, price, category, images } = req.body;
+  const { name, description, price, category, images, stockQuantity } = req.body;
+  console.log(req.body)
   console.log('req body in editproduct: ', [req.body, req.params]);
 
   const product = await productModel.findById(productId);
@@ -129,6 +167,7 @@ export const editProduct = async (req, res, next) => {
   product.price = price || product.price;
   product.category = category || product.category;
   product.images = images || product.images;
+  product.stockQuantity = stockQuantity || product.stockQuantity;
 
   const updatedProduct = await product.save();
 
@@ -137,4 +176,3 @@ export const editProduct = async (req, res, next) => {
     product: updatedProduct
   });
 };
-

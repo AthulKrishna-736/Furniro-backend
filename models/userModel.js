@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
         type:Boolean,
         default:false,
     },
-    isVerfied:{
+    isGoogleUser:{
         type:Boolean,
         default:false,
     },

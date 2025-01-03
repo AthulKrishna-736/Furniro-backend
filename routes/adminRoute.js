@@ -6,6 +6,9 @@ import { adminLogin } from '../controllers/admin/adminLogin.js';
 import { addBanners, editBanner, getBanners } from '../controllers/admin/bannerManage.js';
 import { getAllOrders, updateOrderStatus } from '../controllers/user/orderController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
+import { createCoupon, deleteCoupon, getAllCoupons } from '../controllers/user/couponController.js';
+import { getCategories, createCatOffer, toggleCatOfferStatus, getOffers } from '../controllers/user/offerController.js'
+
 
 const adminRoute = express.Router();
 
@@ -36,6 +39,18 @@ adminRoute.patch('/editBanners/:id', asyncHandler(editBanner));
 //orders
 adminRoute.get('/getOrders', asyncHandler(getAllOrders));
 adminRoute.patch('/updateOrderStatus', asyncHandler(updateOrderStatus))
+
+//coupon manage
+adminRoute.get('/getCoupons', asyncHandler(getAllCoupons));
+adminRoute.post('/createCoupon', asyncHandler(createCoupon));
+adminRoute.delete('/deleteCoupon', asyncHandler(deleteCoupon));
+
+//offers manage
+adminRoute.get('/getCatOffers', asyncHandler(getOffers));
+adminRoute.get('/getCat', asyncHandler(getCategories));
+adminRoute.post('/createOffer', asyncHandler(createCatOffer));
+adminRoute.patch('/blockCatOffer', asyncHandler(toggleCatOfferStatus));
+
 
 
 export default adminRoute;

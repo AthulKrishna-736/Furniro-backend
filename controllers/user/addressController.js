@@ -3,11 +3,8 @@ import addressModel from "../../models/addressSchema.js"
 //add address
 export const addAddress = async (req, res, next) => {
   const { userId } = req.params;
-  const { name, phoneNumber, pincode, locality, state, type, district } = req.body;
+  const { name, phoneNumber, pincode, locality, state, type, district, altPhoneNumber } = req.body;
 
-  console.log('reqbody and param in addAddress: ', [req.params, req.body]);
-
-  // Sample validation check for missing values in the request body
   if (!name || !phoneNumber || !pincode || !locality || !state || !type || !district) {
     return next({ statusCode: 400, message: 'All fields are required: name, phoneNumber, pincode, locality, state, type, district' });
   }
@@ -21,47 +18,38 @@ export const addAddress = async (req, res, next) => {
     state,
     type,
     district,
+    altPhoneNumber,
   });
 
   const savedAddress = await newAddress.save();
-
   if (!savedAddress) {
     return next({ statusCode: 500, message: 'Error while adding address' });
   }
 
-  console.log('address added successfully');
   res.status(200).json({ message: 'Address added successfully', address: savedAddress });
 };
 
 //get address
 export const getAddress = async (req, res, next) => {
   const { userId } = req.params; 
-  console.log('params in getAddress: ', [req.params, userId]);
 
   const addresses = await addressModel.find({ user: userId });
-
   if (!addresses.length) {
-      console.log('No addresses found.');
-      return next({ statusCode: 404, message: 'No addresses found for the user.' });
+      return next({ statusCode: 404, message: 'No addresses found. Please add' });
   }
 
-  console.log('Addresses found and responded');
   res.status(200).json({ message: 'Addresses retrieved successfully', addresses });
 };
 
 //delete address
 export const deleteAddress = async (req, res, next) => {
   const { Id } = req.params;
-  console.log('req params in deleteAddress: ', [req.params, Id]);
 
   const deletedAddress = await addressModel.findByIdAndDelete(Id);
-
   if (!deletedAddress) {
-      console.log('Address not found');
       return next({ statusCode: 404, message: 'Address not found' });
   }
 
-  console.log('Address deleted successfully');
   res.status(200).json({ message: 'Address deleted successfully' });
 };
 
@@ -70,26 +58,39 @@ export const updateAddress = async (req, res, next) => {
   const { id } = req.params;
   const updateData = req.body;
 
-  console.log('Request body and params in updateAddress: ', { params: req.params, body: req.body });
+  console.log('Request body and params in updateAddress: ', [req.params, req.body]);
 
   if (!id) {
-      console.log('Address ID is missing in parameters');
       return next({ statusCode: 400, message: 'Address ID is required' });
   }
 
-  console.log('Attempting to update address...');
+  const existingAddress = await addressModel.findById(id);
+  if(!existingAddress) {
+    return next({ statusCode: 404, message: 'Address not found' });
+  }
+  console.log('existing add: ',existingAddress)
+
+  const hasChanges = Object.keys(updateData).some(
+    (key) => updateData[key] !== existingAddress[key]?.toString() // Convert to string for safe comparison
+  );
+
+  if(!hasChanges) {
+    console.log('skipping no changes detected ')
+    return next({ statusCode:200, message:'No changes detected' })
+  }
+
   const updatedAddress = await addressModel.findByIdAndUpdate(
       id,
       { $set: updateData },
       { new: true }
   );
 
+  console.log('update address: ', updateAddress)
+
   if (!updatedAddress) {
-      console.log('Address not found for update');
       return next({ statusCode: 404, message: 'Address not found' });
   }
 
-  console.log('Address updated successfully');
   res.status(200).json({
       message: 'Address updated successfully',
       address: updatedAddress,

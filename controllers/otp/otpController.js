@@ -13,6 +13,11 @@ export const createOtp = async (req, res, next) => {
   const { email, isSignup } = req.body;
   console.log('req of c otp = ', req.body);
 
+  if(!email){
+    console.log('email is empty')
+    return next({ statusCode: 404, message:'email is not found' });
+  }
+
   if (!isSignup) {
     const user = await userModel.findOne({ email });
 

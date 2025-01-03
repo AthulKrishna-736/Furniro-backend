@@ -1,13 +1,13 @@
 import mongoose from 'mongoose';
 
-const orderSchema = new mongoose.Schema(
+const tempOrderSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User', 
+      ref: 'User',
       required: true,
     },
-    orderedItems: [
+    cartItems: [
       {
         productId: {
           type: mongoose.Schema.Types.ObjectId,
@@ -29,25 +29,20 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    status: {
+    paymentMethod: {
       type: String,
-      enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Returned'],
-      default: 'Pending',
-    },
-    payment: {
-      type: String,
-      enum: ['COD','Razorpay', 'Wallet'],
+      enum: ['COD', 'Razorpay', 'Wallet'],
       required: true,
     },
     paymentStatus: {
       type: String,
-      enum: ['Pending', 'Completed', 'Failed', 'Refunded'],
+      enum: ['Pending', 'Completed', 'Failed'],
       default: 'Pending',
     },
   },
   { timestamps: true }
 );
 
-const orderModel = mongoose.model('Order', orderSchema);
+const TempOrderModel = mongoose.model('TempOrder', tempOrderSchema);
 
-export default orderModel;
+export default TempOrderModel;

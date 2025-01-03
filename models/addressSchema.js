@@ -25,6 +25,9 @@ const addressSchema = new mongoose.Schema(
     state: {
       type: String,
     },
+    altPhoneNumber:{
+      type: String,
+    },
     type: {
       type: String,
     },

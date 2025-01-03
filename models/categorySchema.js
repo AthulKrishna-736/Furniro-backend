@@ -14,7 +14,12 @@ const categorySchema = mongoose.Schema({
     isBlocked: {
         type: Boolean,
         default: false,
-    }, 
+    },
+    currentOffer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CategoryOffer',
+    },
+ 
 },{ timestamps: true })
 
 

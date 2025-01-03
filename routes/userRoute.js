@@ -8,8 +8,10 @@ import { getUserProducts, productDetails } from '../controllers/admin/product/pr
 import checkUserBlock from '../middleware/checkUserBlock.js';
 import { addAddress, deleteAddress, getAddress, updateAddress } from '../controllers/user/addressController.js';
 import { addToCart, deleteItems, getCart, updateQuantity } from '../controllers/user/cartController.js';
-import { cancelOrder, getUserOrder, returnOrder, userOrders } from '../controllers/user/orderController.js'
+import { cancelOrder, createTempOrder, getUserOrder, returnOrder, updateStatusRazorpay, userOrders } from '../controllers/user/orderController.js'
 import { asyncHandler } from '../middleware/asyncHandler.js';
+import { createOrder } from '../utils/razorPay.js';
+import { addWishlist, deleteWishlist, getWishlist } from '../controllers/user/wishlistController.js';
 
 const userRoute = express.Router();
 
@@ -18,7 +20,6 @@ userRoute.post('/login', checkUserBlock, asyncHandler(userLogin));
 userRoute.post('/logout', asyncHandler(userLogout));
 userRoute.post('/signup', asyncHandler(userSignup));
 userRoute.post('/checkUser', asyncHandler(checkUser));
-
 
 //otp requests
 userRoute.post('/createOtp', asyncHandler(createOtp));
@@ -60,5 +61,14 @@ userRoute.post('/placeOrder', checkUserBlock, asyncHandler(userOrders));
 userRoute.get('/getOrder/:userId', checkUserBlock, asyncHandler(getUserOrder));
 userRoute.patch('/cancelOrder', checkUserBlock, asyncHandler(cancelOrder));
 userRoute.patch('/returnOrder', checkUserBlock, asyncHandler(returnOrder));
+userRoute.post('/createOrder', checkUserBlock, asyncHandler(createOrder));
+userRoute.put('/updateStatus/:orderId', checkUserBlock, asyncHandler(updateStatusRazorpay))
+userRoute.post('/tempOrder', checkUserBlock, asyncHandler(createTempOrder))
+
+//wishlist
+userRoute.post('/addWishlist', checkUserBlock, asyncHandler(addWishlist));
+userRoute.post('/deleteWishlist', checkUserBlock, asyncHandler(deleteWishlist));
+userRoute.post('/moveToCart', checkUserBlock, asyncHandler(addToCart));
+userRoute.get('/getWishlist/:userId', checkUserBlock, asyncHandler(getWishlist));
 
 export default userRoute;

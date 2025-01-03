@@ -2,9 +2,10 @@ import userModel from "../models/userModel.js";
 
 const checkUserBlock = async (req, res, next) => {
     try {
-        const email = req.body.email || req.query.email; 
-        console.log('req body middle: ',req.body.email);
-        console.log('req param middle: ', req.query.email);
+        const email = req.body.emailInt || req.query.email; 
+        console.log('req body middleware: ',req.body.emailInt);
+        console.log('req param middleware: ', req.query.email);
+        console.log('req body in middleware: ', req.body)
 
         if (!email) {
             console.log('email is required..!');

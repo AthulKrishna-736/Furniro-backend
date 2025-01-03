@@ -92,27 +92,32 @@ export const googleLogin = async (req, res, next) => {
       audience: process.env.GOOGLE_CLIENT_ID,
   });
 
-  const { name, email, picture } = ticket.getPayload();
+  console.log('google ticket : ', ticket)
+  const { given_name, family_name, email } = ticket.getPayload();
 
   let user = await userModel.findOne({ email });
   console.log('Google Login - User:', user);
 
   if (!user) {
-      user = await userModel.create({ name, email });
+      user = await userModel.create({
+        firstName: given_name,
+        lastName: family_name,
+        email: email,
+        isGoogleUser: true,
+        password:null,
+      });
   }
 
-  // Generate access and refresh tokens
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
-  // Set tokens in cookies
   setAuthCookies(res, accessToken, refreshToken);
 
-  // Send a success response
   res.status(200).json({
-      message: 'Login successful',
+      message: 'Google Login successful',
       userId: user._id,
       name: user.name,
+      userEmail: user.email
   });
 };
 
@@ -165,7 +170,7 @@ export const checkUser = async (req, res, next) => {
   const user = await userModel.findOne({ email });
 
   if (user) {
-      return next({ statusCode: 409, message: 'User already exists. Please login.' });
+      return res.json({ statusCode: 404, message: 'User already exists. Please login.' });
   }
   res.status(200).json({ message: 'User not found. Proceed to signup.' });
 };
@@ -174,16 +179,13 @@ export const checkUser = async (req, res, next) => {
 //get individual user
 export const getIndividualUser = async (req, res, next) => {
   const { email } = req.body;
-  console.log('email in getIndividualUser: ', email);
-  console.log('req body of getIndividualUser: ', req.body);
+  console.log('email: ', req.body);
 
   const user = await userModel.findOne({ email });
-
   if (!user) {
       return next({ statusCode: 404, message: 'User not found.' });
   }
 
-  console.log('User fetched successfully in getIndividualUser.');
   res.status(200).json({ message: 'User fetched successfully.', user });
 };
 

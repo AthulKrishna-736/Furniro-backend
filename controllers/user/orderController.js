@@ -3,6 +3,7 @@ import addressModel from '../../models/addressSchema.js';
 import cartModel from '../../models/cartModel.js';
 import orderModel from '../../models/orderModel.js';
 import productModel from '../../models/productSchema.js';
+import TempOrderModel from '../../models/tempOrderModel.js';
 
 // Add orders
 export const userOrders = async (req, res, next) => {
@@ -124,9 +125,8 @@ export const getUserOrder = async (req, res, next) => {
     })
     .select('selectedAddress totalPrice status payment orderedItems createdAt')
 
-  // Handle case where no orders are found
   if (!orders || orders.length === 0) {
-    return next({ statusCode: 404, message: 'No orders found for this user' });
+    return next({ statusCode: 404, message: 'No orders found' });
   }
 
   res.status(200).json({ message: 'Order details sent successfully', orders });
@@ -259,4 +259,62 @@ export const updateOrderStatus = async (req, res, next) => {
   await order.save();
 
   res.status(200).json({ message: 'Order status updated successfully' })
+}
+
+//razor pay status change
+export const updateStatusRazorpay = async (req, res, next) => {
+  const { paymentStatus } = req.body; 
+  const { orderId } = req.params; 
+
+    const order = await TempOrderModel.findById(orderId);
+
+    if (!order) {
+      return next({ statusCode: 404, message: 'Order not found' });
+    }
+
+    if (paymentStatus === 'Failed') {
+      return next({ statusCode: 400, message: 'Payment failed. Cannot update status.' });
+    }
+
+    if (order.status === 'Cancelled' || order.status === 'Returned') {
+      return next({
+        statusCode: 400,
+        message: 'Cancelled or returned order cannot change status.',
+      });
+    }
+
+    order.paymentStatus = paymentStatus;
+
+    if (paymentStatus === 'Completed') {
+      order.status = 'Processing'; 
+    }
+
+    await order.save();
+
+    res.status(200).json({ message: 'Order payment status updated successfully', order });
+};
+
+//temporary order save
+export const createTempOrder = async (req, res, next)=>{
+  const { userId, cartItems, selectedAddress, totalPrice, paymentMethod } = req.body;
+  console.log('reqbody of temorder: ', req.body)
+
+  if (!cartItems.length > 0) {
+    return next({ statusCode: 400, message: 'Cart items are required' });
+  }  
+
+  if (!userId || !selectedAddress || !totalPrice || !paymentMethod) {
+   next({ statusCode:400, message: 'Missing required fields' });
+  }
+
+  const tempOrder = new TempOrderModel({
+    userId,
+    cartItems,
+    selectedAddress,
+    totalPrice,
+    paymentMethod,
+  });
+
+  const savedTempOrder = await tempOrder.save();
+  res.status(200).json({ tempOrder: savedTempOrder });
 }
