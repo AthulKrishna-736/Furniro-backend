@@ -10,8 +10,11 @@ export const addToCart = async (req, res, next) => {
     return next({ statusCode: 404, message: 'Product not found' });
   }
 
+  if (product.isBlocked) {
+    return next({ statusCode: 403, message: 'This product is currently unavailable.' });
+  }
+
   if (quantity > product.stockQuantity) {
-    console.log(`product stock here: ${product.stockQuantity}, and also quantity ${quantity}`)
     return next({ statusCode: 400, message: 'Not enough stock available' });
   }
 
@@ -36,7 +39,7 @@ export const addToCart = async (req, res, next) => {
 
     if (existingItem) {
       
-      if(existingItem.quantity > 5){
+      if(existingItem.quantity >= 5){
         return next({ statusCode: 400, message: `Max limit exceeded: You can only add up to 5 units per order` })
       }
       
@@ -69,18 +72,34 @@ export const addToCart = async (req, res, next) => {
 //getcart
 export const getCart = async (req, res, next) => {
   const { userId } = req.params;
-  console.log('Fetching cart for user: ', userId);
 
+  // Find the cart and populate product details
   const cart = await cartModel
     .findOne({ userId })
-    .populate('items.productId', 'name salesPrice images stockQuantity')
-    .select('totalPrice items')
-
-    cart.totalPrice = cart.items.reduce((total, item) => total + (item.price * item.quantity), 0);
-    await cart.save();
+    .populate('items.productId', 'name salesPrice images stockQuantity isBlocked')
+    .select('totalPrice items');
 
   if (!cart) {
     return next({ statusCode: 404, message: 'Cart not found' });
+  }
+
+  // Update cart total price
+  cart.totalPrice = cart.items.reduce((total, item) => total + item.price * item.quantity, 0);
+  await cart.save();
+
+  const blockedItems = [];
+  cart.items.forEach((item) => {
+    if (item.productId?.isBlocked) {
+      blockedItems.push(item.productId); 
+    }
+  });
+
+  if (blockedItems.length > 0) {
+    return res.status(200).json({
+      message: 'Cart retrieved successfully, but some products are blocked. Please remove them to proceed.',
+      cart,
+      blockedItems,
+    });
   }
 
   res.status(200).json({ message: 'Cart retrieved successfully', cart });
@@ -89,7 +108,6 @@ export const getCart = async (req, res, next) => {
 //delete cart items
 export const deleteItems = async (req, res, next) => {
   const { id } = req.params;
-  console.log('req params = ', req.params);
 
   const cart = await cartModel.findOne({ "items._id": id });
   if (!cart) {
@@ -108,7 +126,6 @@ export const deleteItems = async (req, res, next) => {
 
   product.stockQuantity += item.quantity;
   await product.save();
-  console.log(`Stock updated for product ID ${product._id}. New stock: ${product.stockQuantity}`);
 
   const result = await cartModel.updateOne(
     { "items._id": id },
@@ -126,7 +143,6 @@ export const deleteItems = async (req, res, next) => {
 export const updateQuantity = async (req, res, next) => {
   const { itemId, action } = req.body;
   const { userId } = req.params;
-  console.log('Request body and params for cart update:', [req.body, req.params]);
 
   const cart = await cartModel.findOne({ userId }).populate('items.productId');
   if (!cart) {
@@ -145,7 +161,6 @@ export const updateQuantity = async (req, res, next) => {
 
   const currentQuantity = item.quantity;
 
-  console.log(`current stock is ${currentQuantity} in items and ${product.stockQuantity} in the product`)
 
   let newQuantity = currentQuantity;
   if (action === 'increase') {
@@ -170,7 +185,6 @@ export const updateQuantity = async (req, res, next) => {
   item.quantity = newQuantity;
   await cart.save();
 
-  console.log('Cart quantity updated properly');
   res.status(200).json({ message: 'Quantity updated successfully', cart });
 };
 

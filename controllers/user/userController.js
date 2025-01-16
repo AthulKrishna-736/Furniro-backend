@@ -15,17 +15,24 @@ export const userLogin = async (req, res, next) => {
 
   const user = await userModel.findOne({ email });
   if (!user) {
-      return next({ statusCode: 404, message: 'User not found. Please sign up to create an account.' });
+    return next({ statusCode: 404, message: 'User not found. Please sign up to create an account.' });
+  }
+
+  if (user.role !== 'user') {
+    return next({ statusCode: 403, message: 'Access denied. Only users with the "user" role can log in here.' })
   }
 
   const isValidPass = await bcrypt.compare(password, user.password);
   if (!isValidPass) {
-      return next({ statusCode: 401, message: 'Invalid credentials' });
+    return next({ statusCode: 401, message: 'Invalid credentials' });
   }
 
   if (user.isBlocked) {
-      return next({ statusCode: 403, message: 'Your account is blocked.' });
+    return next({ statusCode: 403, message: 'Your account is blocked.' });
   }
+
+  user.tokenVersion += 1;
+  await user.save();
 
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
@@ -35,8 +42,8 @@ export const userLogin = async (req, res, next) => {
   console.log('Cookies set successfully');
 
   res.status(200).json({
-      message: 'Login successful',
-      user: { email: user.email, id: user._id },
+    message: 'Login successful',
+    user: { email: user.email, id: user._id },
   });
 };
 
@@ -44,15 +51,15 @@ export const userLogin = async (req, res, next) => {
 //logout user
 export const userLogout = async (req, res, next) => {
   res.clearCookie('accessToken', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
   });
 
   res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
   });
 
   res.status(200).json({ message: 'Logout successful' });
@@ -75,11 +82,12 @@ export const userSignup = async (req, res, next) => {
     lastName,
     email,
     password: hashPass,
+    role: 'user',
   });
 
   const savedUser = await newUser.save();
 
-  res.status(200).json({ message: "User created successfully.", user: { email: savedUser.email } });
+  res.status(200).json({ message: "User created successfully.", user: { email: savedUser.email, role: savedUser.role } });
 };
 
 
@@ -88,8 +96,8 @@ export const googleLogin = async (req, res, next) => {
   const { credential } = req.body;
 
   const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
   });
 
   console.log('google ticket : ', ticket)
@@ -99,13 +107,14 @@ export const googleLogin = async (req, res, next) => {
   console.log('Google Login - User:', user);
 
   if (!user) {
-      user = await userModel.create({
-        firstName: given_name,
-        lastName: family_name,
-        email: email,
-        isGoogleUser: true,
-        password:null,
-      });
+    user = await userModel.create({
+      firstName: given_name,
+      lastName: family_name,
+      email: email,
+      isGoogleUser: true,
+      password: null,
+      role: 'user',
+    });
   }
 
   const accessToken = generateAccessToken(user);
@@ -114,10 +123,10 @@ export const googleLogin = async (req, res, next) => {
   setAuthCookies(res, accessToken, refreshToken);
 
   res.status(200).json({
-      message: 'Google Login successful',
-      userId: user._id,
-      name: user.name,
-      userEmail: user.email
+    message: 'Google Login successful',
+    userId: user._id,
+    name: user.name,
+    userEmail: user.email
   });
 };
 
@@ -131,12 +140,12 @@ export const forgotPass = async (req, res, next) => {
   const user = await userModel.findOne({ email });
 
   if (!user) {
-      return next({ statusCode: 404, message: 'User not found. Please sign up.' });
+    return next({ statusCode: 404, message: 'User not found. Please sign up.' });
   }
 
   res.status(200).json({
-      success: true,
-      message: 'User found. Proceeding to send OTP.',
+    success: true,
+    message: 'User found. Proceeding to send OTP.',
   });
 };
 
@@ -149,13 +158,13 @@ export const resetPass = async (req, res, next) => {
   const hashPass = await bcrypt.hash(password, 10);
 
   const response = await userModel.findOneAndUpdate(
-      { email },
-      { password: hashPass },
-      { new: true }
+    { email },
+    { password: hashPass },
+    { new: true }
   );
 
   if (!response) {
-      return next({ statusCode: 404, message: 'User not found. Unable to reset password.' });
+    return next({ statusCode: 404, message: 'User not found. Unable to reset password.' });
   }
   console.log('res reset pass = ', response);
   res.status(200).json({ message: 'Password updated successfully!' });
@@ -170,7 +179,7 @@ export const checkUser = async (req, res, next) => {
   const user = await userModel.findOne({ email });
 
   if (user) {
-      return res.json({ statusCode: 404, message: 'User already exists. Please login.' });
+    return res.json({ statusCode: 404, message: 'User already exists. Please login.' });
   }
   res.status(200).json({ message: 'User not found. Proceed to signup.' });
 };
@@ -179,11 +188,11 @@ export const checkUser = async (req, res, next) => {
 //get individual user
 export const getIndividualUser = async (req, res, next) => {
   const { email } = req.body;
-  console.log('email: ', req.body);
+  console.log('email getindi: ', req.body);
 
   const user = await userModel.findOne({ email });
   if (!user) {
-      return next({ statusCode: 404, message: 'User not found.' });
+    return next({ statusCode: 404, message: 'User not found.' });
   }
 
   res.status(200).json({ message: 'User fetched successfully.', user });
@@ -193,29 +202,21 @@ export const getIndividualUser = async (req, res, next) => {
 //update individual user
 export const updateIndividualUser = async (req, res, next) => {
   const { email, password } = req.body;
-  console.log('req body in updateIndividualUser: ', req.body);
-  console.log('email and password in updateIndividualUser: ', { email, password });
 
   const user = await userModel.findOne({ email });
   if (!user) {
-      return next({ statusCode: 404, message: 'User not found.' });
+    return next({ statusCode: 404, message: 'User not found.' });
   }
 
   if (password && password !== user.password) {
-      console.log('Password has been updated, hashing new password...');
-      const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      const updatedUser = await userModel.findOneAndUpdate(
-          { email },
-          { $set: { password: hashedPassword } },
-          { new: true } // Return the updated user
-      );
+    user.password = hashedPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1; 
+    await user.save();
 
-      console.log('User updated successfully:', updatedUser);
-      return res.status(200).json({ message: 'Password updated successfully.', user: updatedUser });
+    return res.status(200).json({ message: 'Password updated successfully.', user });
   }
-
-  console.log('No changes to password.');
   res.status(200).json({ message: 'No changes to password.' });
 };
 

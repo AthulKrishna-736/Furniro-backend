@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import categoryModel from "../../models/categorySchema.js";
 import catOfferModel from "../../models/catOffers.js";
 
@@ -48,40 +49,58 @@ export const createCatOffer = async (req, res, next) => {
   
 //delete offer
 export const toggleCatOfferStatus = async (req, res, next) => {
+  try {
     const { id } = req.params;
-    console.log("Request params = ", req.params);
-  
-    const categoryOffer = await catOfferModel.findById(id);
-  
-    if (!categoryOffer) {
-      return next({ statusCode: 404, message: "Category offer not found" });
-    }
-  
-    categoryOffer.isActive = !categoryOffer.isActive;
-  
-    await categoryOffer.save();
 
-    res.status(200).json({ message: `Category offer ${categoryOffer.isActive ? "unblocked" : "blocked"} successfully` });
-  };
+    console.log("Request params =", req.params);
+
+
+    const categoryOffer = await catOfferModel.findById(id);
+
+    if (!categoryOffer) {
+      return res.status(404).json({ message: "Category offer not found" });
+    }
+
+    // Toggle the isActive status
+    categoryOffer.isActive = !categoryOffer.isActive;
+    await categoryOffer.save();
+console.log('blocked succesfully')
+    res.status(200).json({
+      message: `Category offer ${categoryOffer.isActive ? "unblocked" : "blocked"} successfully`,
+    });
+  } catch (error) {
+    console.error("Error in toggleCatOfferStatus:", error);
+    next(error); // Pass the error to the global error handler
+  }
+};
 
 //get offers
 export const getOffers = async (req, res, next) => {
+  try {
     const offers = await catOfferModel.find().populate("categoryId", "name");
-  
+
+    // Map and format the response
     const offerDetails = offers.map(offer => ({
       offerId: offer._id,
-      categoryName: offer.categoryId.name,
-      discountPercentage: offer.discountPercentage,
+      categoryName: offer.categoryId?.name || 'N/A',
+      discountType: offer.discountType,
+      discountValue: offer.discountValue,
       startDate: offer.startDate,
       expiryDate: offer.expiryDate,
       isActive: offer.isActive,
+      createdAt: offer.createdAt,
+      updatedAt: offer.updatedAt,
     }));
-  
+
     res.status(200).json({
       message: "All offers fetched successfully",
       offers: offerDetails,
     });
-  };
+  } catch (error) {
+    console.error("Error fetching offers:", error);
+    next(error); // Handle errors with middleware if configured
+  }
+};
   
 //get categories
 export const getCategories = async (req, res, next) => {

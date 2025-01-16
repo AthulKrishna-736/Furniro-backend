@@ -1,5 +1,6 @@
 import Razorpay from 'razorpay';
 import dotenv from 'dotenv';
+import userModel from '../models/userModel.js';
 
 dotenv.config();
 
@@ -9,7 +10,7 @@ const razorpayInstance = new Razorpay({
 });
 
 export const createOrder = async (req, res, next) => {
-    const { amount, currency } = req.body;
+    const { amount, currency, userId } = req.body;
 
     const options = {
         amount: amount * 100,
@@ -17,8 +18,15 @@ export const createOrder = async (req, res, next) => {
         receipt: `receipt_${Date.now()}`,
     };
 
-    const order = await razorpayInstance.orders.create(options);
+    const user = await userModel.findById(userId);
+    if(!user){
+        return next({ statusCode: 400, message: 'User not found'});
+    }
+    console.log('user details: ', user);
 
-    res.status(201).json({ order });
+    const order = await razorpayInstance.orders.create(options);
+    console.log('razor pay order creaeted here: ', order)
+
+    res.status(201).json({ order, user });
 }
 

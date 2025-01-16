@@ -3,7 +3,7 @@ import categoryModel from "../../../models/categorySchema.js";
 // Add category
 export const addCategory = async (req, res, next) => {
     const { name, description } = req.body;
-    const lowerCaseName = name.toLowerCase();
+    const lowerCaseName = name.toLowerCase().trim();
 
     // Check for existing category with case-insensitive search
     const existingCategory = await categoryModel.findOne({

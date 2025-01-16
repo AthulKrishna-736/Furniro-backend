@@ -3,11 +3,12 @@ import addressModel from '../../models/addressSchema.js';
 import cartModel from '../../models/cartModel.js';
 import orderModel from '../../models/orderModel.js';
 import productModel from '../../models/productSchema.js';
-import TempOrderModel from '../../models/tempOrderModel.js';
+import walletModel from '../../models/walletModel.js';
+import couponModel from '../../models/couponModel.js';
 
 // Add orders
 export const userOrders = async (req, res, next) => {
-  const { userId, cartId, selectedAddress, paymentMethod } = req.body;
+  const { userId, cartId, selectedAddress, paymentMethod, totalPrice, selectedCoupon, discountedPrice } = req.body;
   console.log('Request body of order:', req.body);
 
   if (!cartId) {
@@ -16,6 +17,14 @@ export const userOrders = async (req, res, next) => {
 
   if (!selectedAddress) {
     return next({ statusCode: 404, message: 'Address not selected' });
+  }
+
+  if (!paymentMethod) {
+    return next({ statusCode: 404, message: 'Payment method is not selected' });
+  }
+
+  if(paymentMethod == 'COD' && totalPrice > 1000){
+    return next({ statusCode:404, message: 'Cash on Delivery (COD) is not available for orders exceeding ₹1000. Please select an alternative payment method' })
   }
 
   const user = await userModel.findById(userId).select('name');
@@ -35,9 +44,6 @@ export const userOrders = async (req, res, next) => {
 
   const fullAddress = `${address.locality}, ${address.district}, ${address.state} - ${address.pincode}`;
 
-  let finalTotalPrice = 0;
-
-  // Prepare ordered items from cart
   const orderedItems = [];
   for (const item of cart.items) {
     const product = await productModel.findById(item.productId);
@@ -45,25 +51,45 @@ export const userOrders = async (req, res, next) => {
     if (!product) {
       return next({ statusCode: 404, message: `Product not found: ${item.productId}` });
     }
-  
-    if (product.stockQuantity < item.quantity) {
-      return next({ statusCode: 400, message: `Insufficient stock for ${product.name}. Only ${product.stockQuantity} left.`,});
-    }
-  
-    product.stockQuantity -= item.quantity;
-    await product.save();
-  
-    const productPrice = product.salesPrice * item.quantity;
-    finalTotalPrice += productPrice;
-  
+
     orderedItems.push({
       productId: product._id,
       name: product.name,
       quantity: item.quantity,
-      price: productPrice,
+      price: item.price,
     });
   }
+
+  let finalTotalPrice = totalPrice;
+  if(selectedCoupon){
+    const coupon = await couponModel.findById(selectedCoupon);
+    if(!coupon){
+      return next({ statusCode: 404, message: 'Coupon not found' });
+    }
+    
+    console.log('coupon details : ',coupon)
+    const currentDate = new Date();
+    if(coupon.expiryDate && coupon.expiryDate < currentDate){
+      return next({ statusCode: 400, message: 'Coupon has expired' });
+    }
+
+    const userCouponUsage = await orderModel.countDocuments({
+      userId,
+      couponApplied: selectedCoupon,
+    });
   
+    if (userCouponUsage >= 5) {
+      return next({ statusCode: 400, message: 'You have already used this coupon 5 times.' });
+    }
+  
+    if (discountedPrice) {
+      finalTotalPrice = discountedPrice;
+    }
+    coupon.user = userId;
+    coupon.usedCount = (coupon.usedCount || 0) + 1;
+    await coupon.save();
+    console.log('coupon console: ',coupon);
+  }
 
   // Create new order
   const newOrder = new orderModel({
@@ -72,15 +98,36 @@ export const userOrders = async (req, res, next) => {
     selectedAddress: fullAddress,
     totalPrice: finalTotalPrice,
     payment: paymentMethod,
+    couponApplied: selectedCoupon || null,
+    status: paymentMethod === 'Wallet' ? 'Processing' : 'Pending',
+    paymentStatus: paymentMethod === 'Wallet' ? 'Completed' : 'Pending',
   });
 
   const savedOrder = await newOrder.save();
   console.log('Order saved successfully.', savedOrder);
 
+  if(paymentMethod == 'Wallet'){
+    const wallet = await walletModel.findOne({ userId });
+    if(!wallet){
+      return next({ statusCode:400, message: 'Wallet not found' });
+    }
+
+    if(wallet.balance < totalPrice){
+      return next({ statusCode:400, message: 'Insufficient balance in wallet' })
+    }
+
+    wallet.balance -= totalPrice;
+    wallet.transactions.push({
+      type: 'debit',
+      amount: totalPrice,
+      description: `Order payment for Order ID: ${savedOrder._id}`,
+      relatedOrderId: savedOrder._id,
+    })
+    await wallet.save();
+  }
+
   cart.items = [];
   await cart.save();
-
-  console.log('User cart is now empty');
 
   res.status(201).json({
     message: 'Order placed successfully',
@@ -103,6 +150,7 @@ export const userOrders = async (req, res, next) => {
 
       totalPrice: savedOrder.totalPrice,
       paymentMethod: savedOrder.payment,
+      paymentStatus: savedOrder.paymentStatus,
       status: savedOrder.status,
       createdAt: savedOrder.createdAt,
       updatedAt: savedOrder.updatedAt,
@@ -113,6 +161,8 @@ export const userOrders = async (req, res, next) => {
 // Get individual user orders
 export const getUserOrder = async (req, res, next) => {
   const { userId } = req.params;
+  const limit = 4;
+  const { page = 1} = req.query;
 
   const orders = await orderModel.find({ userId })
     .populate({
@@ -123,13 +173,19 @@ export const getUserOrder = async (req, res, next) => {
       path: 'orderedItems.productId',
       select: 'name salesPrice stockQuantity type images',
     })
-    .select('selectedAddress totalPrice status payment orderedItems createdAt')
+    .select('selectedAddress totalPrice status payment orderedItems createdAt paymentStatus')
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .skip((page - 1) * limit);
+
+    const totalOrders = await orderModel.countDocuments({ userId })
+    const totalPages = Math.ceil(totalOrders / limit);
 
   if (!orders || orders.length === 0) {
     return next({ statusCode: 404, message: 'No orders found' });
   }
 
-  res.status(200).json({ message: 'Order details sent successfully', orders });
+  res.status(200).json({ message: 'Order details sent successfully', orders, pagination:{ currentPage: parseInt(page), totalPages, totalOrders, } });
 };
 
 //cancel order
@@ -165,43 +221,67 @@ export const cancelOrder = async (req, res, next) => {
 export const getAllOrders = async (req, res, next) => {
   const orders = await orderModel
   .find()
-  .populate('userId', 'firstName lastName email selectedAddress') 
+  .populate('userId', 'firstName lastName email selectedAddress')
+  .populate('couponApplied', 'name discountType discountValue')
   .populate('orderedItems.productId', 'name images salesPrice');
 
-
-  // Check if orders exist
   if (!orders || orders.length === 0) {
     return next({ statusCode: 404, message:'Order not found' });
   }
 
-  // Format the orders for the response
-  const formattedOrders = orders.map((order) => ({
-    orderId: order._id,
-    userName: `${order.userId?.firstName || ''} ${order.userId?.lastName || ''}`.trim(),
-    userEmail: order.userId?.email || 'Unknown',
-    totalPrice: order.totalPrice,
-    status: order.status,
-    createdAt: new Date(order.createdAt).toLocaleString('en-GB',{
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }),
-    payment: order.payment,
-    address: order.selectedAddress,
-    orderedItems: order.orderedItems.map((item) => ({
-      productId: item.productId?._id || null,
-      productName: item.productId?.name || 'Unknown',
-      productImage: item.productId?.images?.[0] || 'No Image',
-      pricePerUnit: item.productId?.salesPrice || 0,
-      quantity: item.quantity,
-      totalItemPrice: item.quantity * (item.productId?.salesPrice || 0),
-    })),
-  }));
+    // Format the orders for the response
+    const formattedOrders = orders.map((order) => {
+      // Calculate the total price manually
+      const calculatedTotalPrice = order.orderedItems.reduce((total, item) => {
+        const pricePerUnit = item.productId?.salesPrice || 0;
+        return total + pricePerUnit * item.quantity;
+      }, 0);
 
-  // Send the response
+      // Calculate the discount amount
+      let discountAmount = 0;
+      if (order.couponApplied) {
+        const { discountType, discountValue } = order.couponApplied;
+        if (discountType === 'PERCENTAGE') {
+          discountAmount = (calculatedTotalPrice * discountValue) / 100;
+        } else if (discountType === 'FLAT') {
+          discountAmount = discountValue;
+        }
+      }
+
+      // Calculate the final price after applying the discount
+      const finalPrice = calculatedTotalPrice - discountAmount;
+
+      // Format the order object
+      return {
+        orderId: order._id,
+        userName: `${order.userId?.firstName || ''} ${order.userId?.lastName || ''}`.trim(),
+        userEmail: order.userId?.email || 'Unknown',
+        totalPrice: calculatedTotalPrice,
+        finalPrice: finalPrice.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
+        couponApplied: order.couponApplied?.name || 'No Coupon',
+        status: order.status,
+        createdAt: new Date(order.createdAt).toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        }),
+        payment: order.payment,
+        address: order.selectedAddress,
+        orderedItems: order.orderedItems.map((item) => ({
+          productId: item.productId?._id || null,
+          productName: item.productId?.name || 'Unknown',
+          productImage: item.productId?.images?.[0] || 'No Image',
+          pricePerUnit: item.productId?.salesPrice || 0,
+          quantity: item.quantity,
+          totalItemPrice: (item.quantity * (item.productId?.salesPrice || 0)).toFixed(2),
+        })),
+      };
+    });
+
   res.status(200).json({
     message: 'Orders fetched successfully',
     orders: formattedOrders,
@@ -255,6 +335,7 @@ export const updateOrderStatus = async (req, res, next) => {
     return next({ statusCode: 400, message: 'Cancelled or returned order canonot change status' })
   }
 
+  order.paymentStatus = 'Completed';
   order.status = status;
   await order.save();
 
@@ -294,27 +375,129 @@ export const updateStatusRazorpay = async (req, res, next) => {
     res.status(200).json({ message: 'Order payment status updated successfully', order });
 };
 
-//temporary order save
-export const createTempOrder = async (req, res, next)=>{
-  const { userId, cartItems, selectedAddress, totalPrice, paymentMethod } = req.body;
-  console.log('reqbody of temorder: ', req.body)
+//salesreport generate 
+export const generateSalesReport = async (req, res, next) => {
+  const { filter, page = 1, startDate, endDate } = req.query;
+  const now = new Date();
+  let calculatedStartDate;
 
-  if (!cartItems.length > 0) {
-    return next({ statusCode: 400, message: 'Cart items are required' });
-  }  
-
-  if (!userId || !selectedAddress || !totalPrice || !paymentMethod) {
-   next({ statusCode:400, message: 'Missing required fields' });
+  switch (filter) {
+    case "daily":
+      calculatedStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      break;
+    case "weekly":
+      calculatedStartDate = new Date(now.setDate(now.getDate() - now.getDay()));
+      break;
+    case "yearly":
+      calculatedStartDate = new Date(now.getFullYear(), 0, 1);
+      break;
+    default:
+      calculatedStartDate = new Date(0); // Default to the epoch for 'overall'
+      break;
   }
 
-  const tempOrder = new TempOrderModel({
-    userId,
-    cartItems,
-    selectedAddress,
-    totalPrice,
-    paymentMethod,
-  });
+  // Use custom date range if provided
+  const queryStartDate = startDate ? new Date(startDate) : calculatedStartDate;
+  const queryEndDate = endDate ? new Date(new Date(endDate).setHours(23, 59, 59, 999)) : now;
 
-  const savedTempOrder = await tempOrder.save();
-  res.status(200).json({ tempOrder: savedTempOrder });
-}
+  try {
+    const limit = 7;
+    const skip = (page - 1) * limit;
+
+    const query = {
+      status: "Delivered",
+      createdAt: { $gte: queryStartDate, $lte: queryEndDate },
+    };
+
+    const totalOrdersResult = await orderModel.find(query).countDocuments();
+    const totalSalesAndDiscountResult = await orderModel
+      .find(query)
+      .populate("orderedItems.productId", "salesPrice")
+      .populate("couponApplied", "discountType discountValue")
+      .exec();
+
+    let totalSales = 0;
+    let totalDiscount = 0;
+
+    totalSalesAndDiscountResult.forEach((order) => {
+      const orderTotal = order.orderedItems.reduce((sum, item) => {
+        return sum + item.quantity * (item.productId?.salesPrice || 0);
+      }, 0);
+
+      let discountAmount = 0;
+      if (order.couponApplied) {
+        if (order.couponApplied.discountType === "PERCENTAGE") {
+          discountAmount = (orderTotal * order.couponApplied.discountValue) / 100;
+        } else if (order.couponApplied.discountType === "FLAT") {
+          discountAmount = order.couponApplied.discountValue;
+        }
+      }
+
+      totalSales += orderTotal - discountAmount;
+      totalDiscount += discountAmount;
+    });
+
+    const totalOrders = totalOrdersResult;
+
+    // Fetch the orders for the current page
+    const orders = await orderModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .populate("userId", "firstName lastName")
+      .populate("orderedItems.productId", "name salesPrice")
+      .populate("couponApplied", "name discountType discountValue")
+      .skip(skip)
+      .limit(limit);
+
+    if (!orders.length) {
+      return res.status(404).json({ message: "No sales data available for the selected filter or date range" });
+    }
+
+    const formattedOrders = orders.map((order) => {
+      const orderTotal = order.orderedItems.reduce((sum, item) => {
+        return sum + item.quantity * (item.productId?.salesPrice || 0);
+      }, 0);
+
+      let discountAmount = 0;
+      if (order.couponApplied) {
+        if (order.couponApplied.discountType === "PERCENTAGE") {
+          discountAmount = (orderTotal * order.couponApplied.discountValue) / 100;
+        } else if (order.couponApplied.discountType === "FLAT") {
+          discountAmount = order.couponApplied.discountValue;
+        }
+      }
+
+      const finalTotal = orderTotal - discountAmount;
+
+      return {
+        orderId: order._id,
+        customerName: `${order.userId?.firstName || "Unknown"} ${order.userId?.lastName || ""}`.trim(),
+        products: order.orderedItems.map((item) => ({
+          name: item.productId?.name || "Unknown",
+          quantity: item.quantity,
+        })),
+        totalPrice: finalTotal.toFixed(2),
+        orderDate: new Date(order.createdAt).toLocaleDateString("en-GB"),
+        status: order.status,
+      };
+    });
+
+    res.status(200).json({
+      statistics: {
+        totalOrders,
+        totalSales: totalSales.toFixed(2),
+        totalDiscount: totalDiscount.toFixed(2),
+      },
+      tableData: formattedOrders,
+      pagination: {
+        currentPage: parseInt(page, 10),
+        totalPages: Math.ceil(totalOrders / limit),
+        totalOrders,
+      },
+    });
+  } catch (error) {
+    console.error("Error generating sales report:", error);
+    next({ statusCode: 500, message: "Error generating sales report" });
+  }
+};
+

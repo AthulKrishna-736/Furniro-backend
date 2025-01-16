@@ -44,6 +44,10 @@ const orderSchema = new mongoose.Schema(
       enum: ['Pending', 'Completed', 'Failed', 'Refunded'],
       default: 'Pending',
     },
+    couponApplied: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Coupons'
+    }
   },
   { timestamps: true }
 );

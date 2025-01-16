@@ -13,7 +13,7 @@ export const adminLogin = async (req, res, next) => {
     return next({ statusCode: 400, message: 'User not found' });
   }
 
-  if (!user.isAdmin) {
+  if (!user.isAdmin && user.role !== 'admin') {
     return next({ statusCode: 403, message: 'Access denied. Admins only.' });
   }
 

@@ -29,6 +29,15 @@ const userSchema = new mongoose.Schema({
         type:Boolean,
         default: false,
     },
+    role: {
+        type: String,
+        enum: ["user", "admin"],
+        default: "user",
+    },
+    tokenVersion: {
+        type: Number,
+        default: 0,
+    }
 }, { timestamps:true })
 
 const userModel = mongoose.model('User',userSchema)

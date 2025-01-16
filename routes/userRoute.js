@@ -8,18 +8,22 @@ import { getUserProducts, productDetails } from '../controllers/admin/product/pr
 import checkUserBlock from '../middleware/checkUserBlock.js';
 import { addAddress, deleteAddress, getAddress, updateAddress } from '../controllers/user/addressController.js';
 import { addToCart, deleteItems, getCart, updateQuantity } from '../controllers/user/cartController.js';
-import { cancelOrder, createTempOrder, getUserOrder, returnOrder, updateStatusRazorpay, userOrders } from '../controllers/user/orderController.js'
+import { cancelOrder, getUserOrder, returnOrder, updateStatusRazorpay, userOrders } from '../controllers/user/orderController.js'
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { createOrder } from '../utils/razorPay.js';
 import { addWishlist, deleteWishlist, getWishlist } from '../controllers/user/wishlistController.js';
+import { getUserWallet, updateWallet } from '../controllers/user/walletController.js';
+import { getUserCoupons } from '../controllers/user/couponController.js';
+import { verifyCsrfToken } from '../middleware/csrfVerify.js';
 
 const userRoute = express.Router();
 
 //user routes
-userRoute.post('/login', checkUserBlock, asyncHandler(userLogin));
+userRoute.post('/login', asyncHandler(userLogin));
 userRoute.post('/logout', asyncHandler(userLogout));
 userRoute.post('/signup', asyncHandler(userSignup));
 userRoute.post('/checkUser', asyncHandler(checkUser));
+userRoute.post('/google-login', asyncHandler(googleLogin));
 
 //otp requests
 userRoute.post('/createOtp', asyncHandler(createOtp));
@@ -34,7 +38,6 @@ userRoute.patch('/resetPass', asyncHandler(resetPass));
 userRoute.post('/verifyToken', checkUserBlock, tokenVerify);
 userRoute.post('/refreshToken', checkUserBlock, refreshTokenCheck);
 
-userRoute.post('/google-login', asyncHandler(googleLogin));
 
 //product requests
 userRoute.get('/featuredProducts', getUserProducts);
@@ -43,32 +46,38 @@ userRoute.get('/products', getUserProducts);
 userRoute.get('/productDetails/:productId', productDetails);
 
 //accounts
-userRoute.post('/getUserDetail', checkUserBlock, asyncHandler(getIndividualUser));
-userRoute.patch('/updateUserDetails', checkUserBlock, asyncHandler(updateIndividualUser));
-userRoute.post('/addAddress/:userId', checkUserBlock, asyncHandler(addAddress));
-userRoute.get('/getAddress/:userId', checkUserBlock, asyncHandler(getAddress));
-userRoute.delete('/deleteAddress/:Id', checkUserBlock, asyncHandler(deleteAddress));
-userRoute.patch('/updateAddress/:id', checkUserBlock, asyncHandler(updateAddress));
+userRoute.post('/getUserDetail', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(getIndividualUser));
+userRoute.patch('/updateUserDetails', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateIndividualUser));
+userRoute.post('/addAddress/:userId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(addAddress));
+userRoute.get('/getAddress/:userId', checkUserBlock, verifyCsrfToken, asyncHandler(getAddress));
+userRoute.delete('/deleteAddress/:Id', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(deleteAddress));
+userRoute.patch('/updateAddress/:id', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateAddress));
 
 //cart
-userRoute.post('/cart', checkUserBlock, asyncHandler(addToCart));
-userRoute.get('/getCart/:userId', checkUserBlock, asyncHandler(getCart));
-userRoute.delete('/deleteItem/:id', checkUserBlock, asyncHandler(deleteItems));
-userRoute.patch('/updateQuantity/:userId', checkUserBlock, asyncHandler(updateQuantity));
+userRoute.post('/cart', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(addToCart));
+userRoute.get('/getCart/:userId', checkUserBlock, tokenVerify, asyncHandler(getCart));
+userRoute.delete('/deleteItem/:id', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(deleteItems));
+userRoute.patch('/updateQuantity/:userId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateQuantity));
 
 //orders
-userRoute.post('/placeOrder', checkUserBlock, asyncHandler(userOrders));
-userRoute.get('/getOrder/:userId', checkUserBlock, asyncHandler(getUserOrder));
-userRoute.patch('/cancelOrder', checkUserBlock, asyncHandler(cancelOrder));
-userRoute.patch('/returnOrder', checkUserBlock, asyncHandler(returnOrder));
-userRoute.post('/createOrder', checkUserBlock, asyncHandler(createOrder));
-userRoute.put('/updateStatus/:orderId', checkUserBlock, asyncHandler(updateStatusRazorpay))
-userRoute.post('/tempOrder', checkUserBlock, asyncHandler(createTempOrder))
+userRoute.post('/placeOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(userOrders));
+userRoute.get('/getOrder/:userId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(getUserOrder));
+userRoute.patch('/cancelOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(cancelOrder));
+userRoute.patch('/returnOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(returnOrder));
+userRoute.post('/createOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(createOrder));
+userRoute.put('/updateStatus/:orderId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateStatusRazorpay))
 
 //wishlist
-userRoute.post('/addWishlist', checkUserBlock, asyncHandler(addWishlist));
-userRoute.post('/deleteWishlist', checkUserBlock, asyncHandler(deleteWishlist));
-userRoute.post('/moveToCart', checkUserBlock, asyncHandler(addToCart));
-userRoute.get('/getWishlist/:userId', checkUserBlock, asyncHandler(getWishlist));
+userRoute.post('/addWishlist', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(addWishlist));
+userRoute.post('/deleteWishlist', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(deleteWishlist));
+userRoute.post('/moveToCart', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(addToCart));
+userRoute.get('/getWishlist/:userId', checkUserBlock, tokenVerify, asyncHandler(getWishlist));
+
+//wallet
+userRoute.get('/getWallet/:userId', checkUserBlock, tokenVerify, asyncHandler(getUserWallet));
+userRoute.patch('/updateWallet/:userId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateWallet));
+
+//coupon
+userRoute.get('/getCoupons', checkUserBlock, tokenVerify, asyncHandler(getUserCoupons))
 
 export default userRoute;

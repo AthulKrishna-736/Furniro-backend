@@ -4,10 +4,11 @@ import { addCategory, blockCategory, getCategory, updateCategory } from '../cont
 import { addProduct, blockProducts, editProduct, getAllProducts } from '../controllers/admin/product/productController.js';
 import { adminLogin } from '../controllers/admin/adminLogin.js';
 import { addBanners, editBanner, getBanners } from '../controllers/admin/bannerManage.js';
-import { getAllOrders, updateOrderStatus } from '../controllers/user/orderController.js';
+import { generateSalesReport, getAllOrders, updateOrderStatus } from '../controllers/user/orderController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { createCoupon, deleteCoupon, getAllCoupons } from '../controllers/user/couponController.js';
 import { getCategories, createCatOffer, toggleCatOfferStatus, getOffers } from '../controllers/user/offerController.js'
+import { downloadPdf } from '../utils/pdfMaker.js';
 
 
 const adminRoute = express.Router();
@@ -49,7 +50,11 @@ adminRoute.delete('/deleteCoupon', asyncHandler(deleteCoupon));
 adminRoute.get('/getCatOffers', asyncHandler(getOffers));
 adminRoute.get('/getCat', asyncHandler(getCategories));
 adminRoute.post('/createOffer', asyncHandler(createCatOffer));
-adminRoute.patch('/blockCatOffer', asyncHandler(toggleCatOfferStatus));
+adminRoute.patch('/blockCatOffer/:id', asyncHandler(toggleCatOfferStatus));
+
+//sales report
+adminRoute.get('/getSalesReport', asyncHandler(generateSalesReport))
+adminRoute.get('/downloadPdf', asyncHandler(downloadPdf))
 
 
 

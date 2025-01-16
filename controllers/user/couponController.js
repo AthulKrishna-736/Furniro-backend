@@ -2,7 +2,7 @@ import couponModel from "../../models/couponModel.js";
 
   //create coupon
   export const createCoupon = async (req, res, next) => {
-    const { name, discountType, discountValue, minPrice, expiryDate, usedCount } = req.body;
+    const { name, discountType, discountValue, minPrice, expiryDate, count } = req.body;
 
     // Backend validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -40,7 +40,7 @@ import couponModel from "../../models/couponModel.js";
       });
     }
 
-    if (usedCount < 0) {
+    if (count < 0) {
       return next({
         statusCode: 400,
         message: "Used count must be a valid non-negative number.",
@@ -62,7 +62,7 @@ import couponModel from "../../models/couponModel.js";
       discountValue,
       minPrice,
       expiryDate,
-      usedCount, // usedCount is set as received from frontend
+      count,
     });
 
     const savedCoupon = await newCoupon.save();
@@ -92,18 +92,46 @@ import couponModel from "../../models/couponModel.js";
 
   //get all coupons
   export const getAllCoupons = async (req, res, next) => {
-    const coupons = await couponModel.find().sort({ createdAt: -1 }).catch((error) =>
-      next({
-        statusCode: 500,
-        message: "Failed to retrieve coupons",
-      })
-    );
+    const page = parseInt(req.query.page) || 1; 
+    const limit = 5;
+    const skip = (page - 1) * limit; 
   
-    if (coupons) {
+      const totalCount = await couponModel.countDocuments();
+  
+      const coupons = await couponModel
+        .find()
+        .sort({ createdAt: -1 })  
+        .skip(skip) 
+        .limit(limit); 
+  
+      const totalPages = Math.ceil(totalCount / limit);
+  
+      res.status(200).json({
+        success: true,
+        message: "Coupons retrieved successfully",
+        coupons,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalCount,
+          limit,
+        },
+      });
+  };
+  
+  //get user coupons
+  export const getUserCoupons = async (req, res, next) => {
+      const coupons = await couponModel.find().sort({ createdAt: -1 }); 
+      if (!coupons || coupons.length === 0) {
+        return next({ 
+          statusCode: 404, 
+          message: "No coupons available" 
+        });
+      }
       res.status(200).json({
         success: true,
         message: "Coupons retrieved successfully",
         coupons,
       });
-    }
   };
+  
