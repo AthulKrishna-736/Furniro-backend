@@ -5,7 +5,7 @@ import crypto from 'crypto';
 dotenv.config();
 
 export const tokenExpireTime = {
-    accessToken: 900, //seconds
+    accessToken: 90000, //seconds
     refreshToken: 604800, //seconds
 }
 

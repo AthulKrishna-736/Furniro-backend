@@ -1,4 +1,6 @@
 import cartModel from '../../models/cartModel.js';
+import categoryModel from '../../models/categorySchema.js';
+import catOfferModel from '../../models/catOffers.js';
 import productModel from '../../models/productSchema.js';
 
 // Add to cart
@@ -20,16 +22,38 @@ export const addToCart = async (req, res, next) => {
 
   let cart = await cartModel.findOne({ userId });
 
+  // Fetch active offers for the product's category
+  const category = await categoryModel.findById(product.category);
+  const activeOffer = await catOfferModel.findOne({
+    categoryId: category._id,
+    isActive: true,  
+    startDate: { $lte: new Date() },
+    expiryDate: { $gte: new Date() },
+  });
+
+  let priceAfterOffer = product.salesPrice;
+
+  // Apply the offer if available
+  if (activeOffer) {
+    if (activeOffer.discountType === 'percentage') {
+      priceAfterOffer = priceAfterOffer - (priceAfterOffer * activeOffer.discountValue) / 100;
+    } else if (activeOffer.discountType === 'flat') {
+      priceAfterOffer = priceAfterOffer - activeOffer.discountValue;
+    }
+  }
+
+  const totalPriceForProduct = priceAfterOffer * quantity;
+
   if (!cart) {
     cart = new cartModel({
       userId,
       items: [{
         productId: product._id,
         name: product.name,
-        price: product.salesPrice,
+        price: priceAfterOffer,
         quantity,
       }],
-      totalPrice: product.salesPrice * quantity,
+      totalPrice: totalPriceForProduct,
     });
     product.stockQuantity -= quantity;
   } else {
@@ -38,33 +62,35 @@ export const addToCart = async (req, res, next) => {
     );
 
     if (existingItem) {
-      
-      if(existingItem.quantity >= 5){
-        return next({ statusCode: 400, message: `Max limit exceeded: You can only add up to 5 units per order` })
+      if (existingItem.quantity >= 5) {
+        return next({ statusCode: 400, message: `Max limit exceeded: You can only add up to 5 units per order` });
       }
-      
-      if (existingItem.quantity >
-        product.stockQuantity) {
-          return next({ statusCode: 400, message: 'Not enough stock available' });
-        }
-        product.stockQuantity -= quantity;
-        existingItem.quantity += quantity;
+
+      if (existingItem.quantity + quantity > product.stockQuantity) {
+        return next({ statusCode: 400, message: 'Not enough stock available' });
+      }
+
+      product.stockQuantity -= quantity;
+      existingItem.quantity += quantity;
+      existingItem.price = priceAfterOffer;  // Update price after applying offer
     } else {
       cart.items.push({
         productId: product._id,
         name: product.name,
-        price: product.salesPrice,
+        price: priceAfterOffer,
         quantity,
       });
       product.stockQuantity -= quantity;
     }
 
-    cart.totalPrice = cart.items.reduce((total, item) => total + item.price * item.quantity,0);
+    // Recalculate the total price of the cart, considering the discounted price for each item
+    cart.totalPrice = cart.items.reduce((total, item) => {
+      return total + (item.price * item.quantity);  // Recalculate each item's price after discount
+    }, 0);
   }
 
   await product.save();
   await cart.save();
-  
 
   res.status(200).json({ message: 'Product added to cart', cart });
 };

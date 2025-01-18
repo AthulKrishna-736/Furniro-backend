@@ -4,11 +4,11 @@ import { addCategory, blockCategory, getCategory, updateCategory } from '../cont
 import { addProduct, blockProducts, editProduct, getAllProducts } from '../controllers/admin/product/productController.js';
 import { adminLogin } from '../controllers/admin/adminLogin.js';
 import { addBanners, editBanner, getBanners } from '../controllers/admin/bannerManage.js';
-import { generateSalesReport, getAllOrders, updateOrderStatus } from '../controllers/user/orderController.js';
+import { getAllOrders, updateOrderStatus } from '../controllers/user/orderController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { createCoupon, deleteCoupon, getAllCoupons } from '../controllers/user/couponController.js';
-import { getCategories, createCatOffer, toggleCatOfferStatus, getOffers } from '../controllers/user/offerController.js'
-import { downloadPdf } from '../utils/pdfMaker.js';
+import { getCategories, createCatOffer, toggleCatOfferStatus, getOffers, deleteOffer, getProductsAndOffers } from '../controllers/user/offerController.js'
+import { generateChartData, generateSalesReport, topSellingDetails } from '../controllers/user/salesController.js';
 
 
 const adminRoute = express.Router();
@@ -33,7 +33,7 @@ adminRoute.patch('/blockProduct/:id', asyncHandler(blockProducts));
 adminRoute.put('/updateProduct/:productId', asyncHandler(editProduct));
 
 //banner management
-adminRoute.get('/getBanners', asyncHandler(getBanners) );
+adminRoute.get('/getBanners', asyncHandler(getBanners));
 adminRoute.post('/addBanners', asyncHandler(addBanners));
 adminRoute.patch('/editBanners/:id', asyncHandler(editBanner));
 
@@ -51,11 +51,13 @@ adminRoute.get('/getCatOffers', asyncHandler(getOffers));
 adminRoute.get('/getCat', asyncHandler(getCategories));
 adminRoute.post('/createOffer', asyncHandler(createCatOffer));
 adminRoute.patch('/blockCatOffer/:id', asyncHandler(toggleCatOfferStatus));
+adminRoute.delete('/deleteCatOffer/:id', asyncHandler(deleteOffer))
+adminRoute.get('/catoffers', asyncHandler(getProductsAndOffers))
 
 //sales report
 adminRoute.get('/getSalesReport', asyncHandler(generateSalesReport))
-adminRoute.get('/downloadPdf', asyncHandler(downloadPdf))
-
+adminRoute.get('/chartData', asyncHandler(generateChartData))
+adminRoute.get('/topSelling', asyncHandler(topSellingDetails))
 
 
 export default adminRoute;
