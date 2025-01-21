@@ -8,21 +8,26 @@ export const generateSalesReport = async (req, res, next) => {
     const { filter, page = 1, startDate, endDate } = req.query;
     const now = new Date();
     let calculatedStartDate;
-
+    
     switch (filter) {
         case "daily":
+            // Start of the current day (00:00:00)
             calculatedStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             break;
         case "weekly":
-            calculatedStartDate = new Date(now.setDate(now.getDate() - now.getDay()));
+            // Start of the current week (Sunday 00:00:00)
+            calculatedStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
             break;
         case "yearly":
+            // Start of the current year (January 1st, 00:00:00)
             calculatedStartDate = new Date(now.getFullYear(), 0, 1);
             break;
         default:
+            // Default to start of Unix epoch for "all time" data
             calculatedStartDate = new Date(0);
             break;
     }
+    
 
     // Use custom date range if provided
     const queryStartDate = startDate ? new Date(startDate) : calculatedStartDate;

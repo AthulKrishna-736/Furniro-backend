@@ -17,6 +17,7 @@ export const addProduct = async (req, res, next) => {
     salesPrice,
     stockQuantity,
     images,
+    
   });
 
   // Save product to database
@@ -152,8 +153,8 @@ export const productDetails = async (req, res, next) => {
 //edit product 
 export const editProduct = async (req, res, next) => {
   const { productId } = req.params; 
-  const { name, description, price, category, images, stockQuantity } = req.body;
-  console.log(req.body)
+  const { name, description, salesPrice, category, images, stockQuantity } = req.body;
+  console.log('product update req',req.body)
   console.log('req body in editproduct: ', [req.body, req.params]);
 
   const product = await productModel.findById(productId);
@@ -164,7 +165,7 @@ export const editProduct = async (req, res, next) => {
 
   product.name = name || product.name;
   product.description = description || product.description;
-  product.price = price || product.price;
+  product.salesPrice = salesPrice || product.salesPrice;
   product.category = category || product.category;
   product.images = images || product.images;
   product.stockQuantity = stockQuantity || product.stockQuantity;

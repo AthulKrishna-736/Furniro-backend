@@ -9,7 +9,7 @@ const couponSchema = mongoose.Schema(
     },
     discountType: {
       type: String,
-      enum: ["PERCENTAGE", "FLAT"], 
+      enum: ["PERCENTAGE", "FLAT"],
       required: true,
     },
     discountValue: {
@@ -18,21 +18,29 @@ const couponSchema = mongoose.Schema(
     },
     minPrice: {
       type: Number,
-      required: true,
+      required: function () {
+        return this.discountType === 'FLAT';
+      },
+    },
+    maxPrice: {
+      type: Number,
+      required: function () {
+        return this.discountType === 'PERCENTAGE';
+      },
     },
     expiryDate: {
       type: Date,
       required: true,
     },
-    count:{
+    count: {
       type: Number,
       required: true,
     },
-    usedCount: { 
+    usedCount: {
       type: Number,
-      default: 0, 
+      default: 0,
     },
-    user:{
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     }

@@ -47,7 +47,7 @@ export const userLogin = async (req, res, next) => {
   });
 };
 
-
+ 
 //logout user
 export const userLogout = async (req, res, next) => {
   res.clearCookie('accessToken', {

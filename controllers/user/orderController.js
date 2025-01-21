@@ -223,7 +223,8 @@ export const getAllOrders = async (req, res, next) => {
     .find()
     .populate('userId', 'firstName lastName email selectedAddress')
     .populate('couponApplied', 'name discountType discountValue')
-    .populate('orderedItems.productId', 'name images salesPrice');
+    .populate('orderedItems.productId', 'name images salesPrice')
+    .sort({ createdAt : -1 });
 
   if (!orders || orders.length === 0) {
     return next({ statusCode: 404, message: 'Order not found' });
