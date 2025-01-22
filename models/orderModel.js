@@ -4,7 +4,7 @@ const orderSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User', 
+      ref: 'User',
       required: true,
     },
     orderedItems: [
@@ -12,6 +12,10 @@ const orderSchema = new mongoose.Schema(
         productId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'Product',
+          required: true,
+        },
+        price: {
+          type: Number,
           required: true,
         },
         quantity: {
@@ -36,7 +40,7 @@ const orderSchema = new mongoose.Schema(
     },
     payment: {
       type: String,
-      enum: ['COD','Razorpay', 'Wallet'],
+      enum: ['COD', 'Razorpay', 'Wallet'],
       required: true,
     },
     paymentStatus: {

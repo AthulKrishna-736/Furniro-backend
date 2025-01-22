@@ -91,6 +91,19 @@ export const userOrders = async (req, res, next) => {
     console.log('coupon console: ', coupon);
   }
 
+  if (paymentMethod === 'Wallet') {
+    const wallet = await walletModel.findOne({ userId });
+    if (!wallet) {
+      return next({ statusCode: 400, message: 'Wallet not found' });
+    }
+
+    if (wallet.balance < totalPrice) {
+      return next({ statusCode: 400, message: 'Insufficient balance in wallet' })
+    }
+  }
+
+  console.log('ordered items: ', orderedItems)
+
   // Create new order
   const newOrder = new orderModel({
     userId,
@@ -108,13 +121,6 @@ export const userOrders = async (req, res, next) => {
 
   if (paymentMethod == 'Wallet') {
     const wallet = await walletModel.findOne({ userId });
-    if (!wallet) {
-      return next({ statusCode: 400, message: 'Wallet not found' });
-    }
-
-    if (wallet.balance < totalPrice) {
-      return next({ statusCode: 400, message: 'Insufficient balance in wallet' })
-    }
 
     wallet.balance -= totalPrice;
     wallet.transactions.push({
@@ -164,28 +170,60 @@ export const getUserOrder = async (req, res, next) => {
   const limit = 4;
   const { page = 1 } = req.query;
 
-  const orders = await orderModel.find({ userId })
-    .populate({
-      path: 'userId',
-      select: 'firstName',
-    })
-    .populate({
-      path: 'orderedItems.productId',
-      select: 'name salesPrice stockQuantity type images',
-    })
-    .select('selectedAddress totalPrice status payment orderedItems createdAt paymentStatus')
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .skip((page - 1) * limit);
+  try {
+    const orders = await orderModel.find({ userId })
+      .populate({
+        path: 'userId',
+        select: 'firstName',
+      })
+      .populate({
+        path: 'orderedItems.productId',
+        select: 'images name stockQuantity type',
+      })
+      .select('selectedAddress totalPrice status payment orderedItems createdAt paymentStatus')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip((page - 1) * limit);
 
-  const totalOrders = await orderModel.countDocuments({ userId })
-  const totalPages = Math.ceil(totalOrders / limit);
+    const totalOrders = await orderModel.countDocuments({ userId });
+    const totalPages = Math.ceil(totalOrders / limit);
 
-  if (!orders || orders.length === 0) {
-    return next({ statusCode: 404, message: 'No orders found' });
+    if (!orders || orders.length === 0) {
+      return next({ statusCode: 404, message: 'No orders found' });
+    }
+
+    const formattedOrders = orders.map((order) => ({
+      orderId: order._id,
+      name: order.userId?.firstName,
+      address: order.selectedAddress, 
+      totalPrice: order.totalPrice,
+      status: order.status,
+      payment: order.payment,
+      paymentStatus: order.paymentStatus,
+      createdAt: order.createdAt,
+      orderedItems: order.orderedItems.map((item) => ({
+        productId: item.productId?._id,
+        name: item.productId?.name || 'Product Name Not Available',
+        image: item.productId?.images?.[0] || 'No image available',
+        type: item.productId?.type,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    }));
+
+    res.status(200).json({
+      message: 'Order details sent successfully',
+      orders: formattedOrders,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalOrders,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    return next({ statusCode: 500, message: 'Internal server error' });
   }
-
-  res.status(200).json({ message: 'Order details sent successfully', orders, pagination: { currentPage: parseInt(page), totalPages, totalOrders, } });
 };
 
 //cancel order
@@ -219,74 +257,76 @@ export const cancelOrder = async (req, res, next) => {
 
 //getall orders
 export const getAllOrders = async (req, res, next) => {
-  const orders = await orderModel
-    .find()
-    .populate('userId', 'firstName lastName email selectedAddress')
-    .populate('couponApplied', 'name discountType discountValue')
-    .populate('orderedItems.productId', 'name images salesPrice')
-    .sort({ createdAt : -1 });
+  try {
+    const orders = await orderModel
+      .find()
+      .populate('userId', 'firstName lastName email')
+      .populate('couponApplied', 'name discountType discountValue')
+      .populate({
+        path: 'orderedItems.productId',
+        select: 'name images',
+      })
+      .sort({ createdAt: -1 });
 
-  if (!orders || orders.length === 0) {
-    return next({ statusCode: 404, message: 'Order not found' });
-  }
-
-  // Format the orders for the response
-  const formattedOrders = orders.map((order) => {
-    // Calculate the total price manually
-    const calculatedTotalPrice = order.orderedItems.reduce((total, item) => {
-      const pricePerUnit = item.productId?.salesPrice || 0;
-      return total + pricePerUnit * item.quantity;
-    }, 0);
-
-    // Calculate the discount amount
-    let discountAmount = 0;
-    if (order.couponApplied) {
-      const { discountType, discountValue } = order.couponApplied;
-      if (discountType === 'PERCENTAGE') {
-        discountAmount = (calculatedTotalPrice * discountValue) / 100;
-      } else if (discountType === 'FLAT') {
-        discountAmount = discountValue;
-      }
+    if (!orders || orders.length === 0) {
+      return next({ statusCode: 404, message: 'No orders found' });
     }
 
-    // Calculate the final price after applying the discount
-    const finalPrice = calculatedTotalPrice - discountAmount;
+    const formattedOrders = orders.map((order) => {
+      const calculatedTotalPrice = order.orderedItems.reduce((total, item) => {
+        return total + item.price * item.quantity;
+      }, 0);
 
-    // Format the order object
-    return {
-      orderId: order._id,
-      userName: `${order.userId?.firstName || ''} ${order.userId?.lastName || ''}`.trim(),
-      userEmail: order.userId?.email || 'Unknown',
-      totalPrice: calculatedTotalPrice,
-      finalPrice: finalPrice.toFixed(2),
-      discountAmount: discountAmount.toFixed(2),
-      couponApplied: order.couponApplied?.name || 'No Coupon',
-      status: order.status,
-      createdAt: new Date(order.createdAt).toLocaleString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      }),
-      payment: order.payment,
-      address: order.selectedAddress,
-      orderedItems: order.orderedItems.map((item) => ({
-        productId: item.productId?._id || null,
-        productName: item.productId?.name || 'Unknown',
-        productImage: item.productId?.images?.[0] || 'No Image',
-        pricePerUnit: item.productId?.salesPrice || 0,
-        quantity: item.quantity,
-        totalItemPrice: (item.quantity * (item.productId?.salesPrice || 0)).toFixed(2),
-      })),
-    };
-  });
+      let discountAmount = 0;
+      if (order.couponApplied) {
+        const { discountType, discountValue } = order.couponApplied;
+        if (discountType === 'PERCENTAGE') {
+          discountAmount = (calculatedTotalPrice * discountValue) / 100;
+        } else if (discountType === 'FLAT') {
+          discountAmount = discountValue;
+        }
+      }
 
-  res.status(200).json({
-    message: 'Orders fetched successfully',
-    orders: formattedOrders,
-  });
+      const finalPrice = calculatedTotalPrice - discountAmount;
+
+      return {
+        orderId: order._id,
+        userName: `${order.userId?.firstName || ''} ${order.userId?.lastName || ''}`.trim(),
+        userEmail: order.userId?.email || 'Unknown',
+        totalPrice: calculatedTotalPrice,
+        finalPrice: finalPrice.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
+        couponApplied: order.couponApplied?.name || 'No Coupon',
+        status: order.status,
+        createdAt: new Date(order.createdAt).toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        }),
+        payment: order.payment,
+        address: order.selectedAddress,
+        orderedItems: order.orderedItems.map((item) => ({
+          productId: item.productId?._id || null,
+          productName: item.productId?.name || 'Unknown',
+          productImage: item.productId?.images?.[0] || 'No Image',
+          pricePerUnit: item.price,
+          quantity: item.quantity,
+          totalItemPrice: (item.price * item.quantity).toFixed(2),
+        })),
+      };
+    });
+
+    res.status(200).json({
+      message: 'Orders fetched successfully',
+      orders: formattedOrders,
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    return next({ statusCode: 500, message: 'Internal server error' });
+  }
 };
 
 //return order
