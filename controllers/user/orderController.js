@@ -119,6 +119,14 @@ export const userOrders = async (req, res, next) => {
   const savedOrder = await newOrder.save();
   console.log('Order saved successfully.', savedOrder);
 
+  // Update orderedItems status to "Processing" when the order status changes to "Processing"
+  if (savedOrder.status === 'Processing') {
+    for (const item of savedOrder.orderedItems) {
+      item.status = savedOrder.status;
+    }
+    await savedOrder.save();
+  }
+
   if (paymentMethod == 'Wallet') {
     const wallet = await walletModel.findOne({ userId });
 
@@ -167,7 +175,7 @@ export const userOrders = async (req, res, next) => {
 // Get individual user orders
 export const getUserOrder = async (req, res, next) => {
   const { userId } = req.params;
-  const limit = 4;
+  const limit = 4; 
   const { page = 1 } = req.query;
 
   try {
@@ -180,7 +188,9 @@ export const getUserOrder = async (req, res, next) => {
         path: 'orderedItems.productId',
         select: 'images name stockQuantity type',
       })
-      .select('selectedAddress totalPrice status payment orderedItems createdAt paymentStatus')
+      .select(
+        'selectedAddress totalPrice status payment orderedItems createdAt paymentStatus orderedItems.returnRequest'
+      )
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip((page - 1) * limit);
@@ -195,7 +205,7 @@ export const getUserOrder = async (req, res, next) => {
     const formattedOrders = orders.map((order) => ({
       orderId: order._id,
       name: order.userId?.firstName,
-      address: order.selectedAddress, 
+      address: order.selectedAddress,
       totalPrice: order.totalPrice,
       status: order.status,
       payment: order.payment,
@@ -208,6 +218,8 @@ export const getUserOrder = async (req, res, next) => {
         type: item.productId?.type,
         price: item.price,
         quantity: item.quantity,
+        status: item.status,
+        returnRequest: item.returnRequest,
       })),
     }));
 
@@ -215,7 +227,7 @@ export const getUserOrder = async (req, res, next) => {
       message: 'Order details sent successfully',
       orders: formattedOrders,
       pagination: {
-        currentPage: parseInt(page),
+        currentPage: parseInt(page, 10),
         totalPages,
         totalOrders,
       },
@@ -247,6 +259,7 @@ export const cancelOrder = async (req, res, next) => {
       product.stockQuantity += item.quantity;
       await product.save();
     }
+    item.status = 'Cancelled';
   }
 
   order.status = 'Cancelled';
@@ -254,6 +267,187 @@ export const cancelOrder = async (req, res, next) => {
 
   res.status(200).json({ message: 'Order cancelled successfully!', order });
 };
+
+//cancel individual product
+export const cancelProduct = async (req, res, next) => {
+  const { orderId, productId } = req.body;
+  console.log('req body here: ', req.body);
+
+  try {
+    const order = await orderModel.findById(orderId);
+    if (!order) {
+      return next({ statusCode: 404, message: 'Order not found' });
+    }
+
+    const item = order.orderedItems.find(
+      (item) => item.productId.toString() === productId
+    );
+
+    if (!item) {
+      return next({ statusCode: 404, message: 'Product not found in the order' });
+    }
+
+    if (order.status === 'Cancelled') {
+      return next({ statusCode: 400, message: 'Order is already cancelled' });
+    }
+
+    if (item.status === 'Cancelled') {
+      return next({ statusCode: 400, message: 'Product is already cancelled' });
+    }
+
+    if (order.status === 'Delivered') {
+      return next({
+        statusCode: 400,
+        message: 'Cannot cancel a product from an order that is already delivered',
+      });
+    }
+
+    if (order.payment === 'Razorpay' || order.payment === 'Wallet') {
+      const productTotalPrice = item.price * item.quantity;
+      const wallet = await walletModel.findOne({ userId: order.userId });
+
+      if (wallet) {
+        wallet.balance += productTotalPrice;
+        wallet.transactions.push({
+          type: 'credit',
+          amount: productTotalPrice,
+          description: `Refund for cancelled product (${productId}) from order (${orderId})`,
+          relatedOrderId: orderId,
+        });
+        await wallet.save();
+      } else {
+        await walletModel.create({
+          userId: order.userId,
+          balance: productTotalPrice,
+          transactions: [
+            {
+              type: 'credit',
+              amount: productTotalPrice,
+              description: `Refund for cancelled product (${productId}) from order (${orderId})`,
+              relatedOrderId: orderId,
+            },
+          ],
+        });
+      }
+    } else if (order.payment === 'COD') {
+      if (order.status === 'Delivered') {
+        const productTotalPrice = item.price * item.quantity;
+        const wallet = await walletModel.findOne({ userId: order.userId });
+
+        if (wallet) {
+          wallet.balance += productTotalPrice;
+          wallet.transactions.push({
+            type: 'credit',
+            amount: productTotalPrice,
+            description: `Refund for cancelled product (${productId}) from order (${orderId})`,
+            relatedOrderId: orderId,
+          });
+          await wallet.save();
+        } else {
+          await walletModel.create({
+            userId: order.userId,
+            balance: productTotalPrice,
+            transactions: [
+              {
+                type: 'credit',
+                amount: productTotalPrice,
+                description: `Refund for cancelled product (${productId}) from order (${orderId})`,
+                relatedOrderId: orderId,
+              },
+            ],
+          });
+        }
+      }
+    }
+
+    if (order.orderedItems.length === 1) {
+      order.status = 'Cancelled';
+      await order.save();
+
+      const product = await productModel.findById(productId);
+      if (product) {
+        product.stockQuantity += item.quantity;
+        await product.save();
+      }
+
+      return res.status(200).json({
+        message: 'Order cancelled successfully!',
+        order,
+      });
+    }
+
+    const product = await productModel.findById(productId);
+    if (product) {
+      product.stockQuantity += item.quantity;
+      await product.save();
+    }
+
+    item.status = 'Cancelled';
+    await order.save();
+
+    res.status(200).json({
+      message: 'Product cancelled successfully!',
+      order,
+    });
+  } catch (error) {
+    next({ statusCode: 500, message: 'Error occurred while cancelling product', error });
+  }
+};
+
+//return individual product
+export const returnProduct = async (req, res, next) => {
+  const { orderId, productId, reason } = req.body;
+  console.log('req body return prod here : ', req.body)
+
+  const order = await orderModel.findById(orderId);
+  if (!order) {
+    return next({ statusCode: 404, message: 'Order not found' });
+  }
+
+  if (order.status === 'Cancelled' || order.status === 'Returned') {
+    return next({
+      statusCode: 400,
+      message: 'Order cannot be returned as it is already cancelled or returned',
+    });
+  }
+
+  if (order.status !== 'Delivered') {
+    return next({
+      statusCode: 400,
+      message: 'Products can only be returned after the order is delivered',
+    });
+  }
+
+  const product = order.orderedItems.find(
+    (item) => item.productId.toString() === productId
+  );
+
+  if (!product) {
+    return next({ statusCode: 404, message: 'Product not found in the order' });
+  }
+
+  if (product.returnRequest?.status) {
+    return next({
+      statusCode: 400,
+      message: 'Return request has already been initiated for this product',
+    });
+  }
+
+  product.returnRequest = {
+    status: 'Pending',
+    reason: reason || 'No reason provided',
+    requestedAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  await order.save();
+
+  res.status(200).json({
+    message: 'Return request initiated successfully',
+    productId,
+    returnRequest: product.returnRequest,
+  });
+}
 
 //getall orders
 export const getAllOrders = async (req, res, next) => {
@@ -366,22 +560,42 @@ export const returnOrder = async (req, res, next) => {
 export const updateOrderStatus = async (req, res, next) => {
   const { orderId, status } = req.body;
 
-  const order = await orderModel.findById(orderId);
+  try {
+    const order = await orderModel.findById(orderId);
 
-  if (!order) {
-    return next({ statusCode: 404, message: 'Order not found' })
+    if (!order) {
+      return next({ statusCode: 404, message: 'Order not found' });
+    }
+
+    if (status === 'Cancelled' || status === 'Returned') {
+      return next({
+        statusCode: 400,
+        message: 'Cancelled or returned orders cannot have their status updated',
+      });
+    }
+
+    order.paymentStatus = 'Completed';
+    order.status = status;
+
+    for (const item of order.orderedItems) {
+      if (item.status === 'Shipped') {
+        item.status = 'Processing';
+      } else {
+        item.status = status;
+      }
+    }
+
+    await order.save();
+
+    res.status(200).json({
+      message: 'Order status updated successfully',
+      order,
+    });
+  } catch (error) {
+    console.log('error updaing the status', error)
+    next({ statusCode: 500, message: 'Error updating order status', error });
   }
-
-  if (status == 'Cancelled' || status == 'Returned') {
-    return next({ statusCode: 400, message: 'Cancelled or returned order canonot change status' })
-  }
-
-  order.paymentStatus = 'Completed';
-  order.status = status;
-  await order.save();
-
-  res.status(200).json({ message: 'Order status updated successfully' })
-}
+};
 
 //razor pay status change
 export const updateStatusRazorpay = async (req, res, next) => {

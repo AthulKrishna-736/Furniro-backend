@@ -8,7 +8,7 @@ import { getUserProducts, productDetails } from '../controllers/admin/product/pr
 import checkUserBlock from '../middleware/checkUserBlock.js';
 import { addAddress, deleteAddress, getAddress, updateAddress } from '../controllers/user/addressController.js';
 import { addToCart, deleteItems, getCart, updateQuantity } from '../controllers/user/cartController.js';
-import { cancelOrder, getUserOrder, returnOrder, updateStatusRazorpay, userOrders } from '../controllers/user/orderController.js'
+import { cancelOrder, cancelProduct, getUserOrder, returnOrder, returnProduct, updateStatusRazorpay, userOrders } from '../controllers/user/orderController.js'
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { createOrder } from '../utils/razorPay.js';
 import { addWishlist, deleteWishlist, getWishlist } from '../controllers/user/wishlistController.js';
@@ -65,7 +65,9 @@ userRoute.get('/getOrder/:userId', verifyCsrfToken, checkUserBlock, tokenVerify,
 userRoute.patch('/cancelOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(cancelOrder));
 userRoute.patch('/returnOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(returnOrder));
 userRoute.post('/createOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(createOrder));
-userRoute.put('/updateStatus/:orderId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateStatusRazorpay))
+userRoute.put('/updateStatus/:orderId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateStatusRazorpay));
+userRoute.patch('/cancelProduct', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(cancelProduct));
+userRoute.patch('/returnRequest', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(returnProduct));
 
 //wishlist
 userRoute.post('/addWishlist', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(addWishlist));

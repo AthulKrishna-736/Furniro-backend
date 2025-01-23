@@ -23,6 +23,26 @@ const orderSchema = new mongoose.Schema(
           required: true,
           min: 1,
         },
+        status: {
+          type: String,
+          enum: ['Pending', 'Processing', 'Delivered', 'Cancelled', 'Returned'],
+          default: 'Pending',
+        },
+        returnRequest: {
+          status: {
+            type: String,
+            enum: ['Pending', 'Accepted', 'Rejected'],
+          },
+          reason: {
+            type: String,
+          },
+          requestedAt: {
+            type: Date,
+          },
+          updatedAt: {
+            type: Date,
+          },
+        },
       },
     ],
     selectedAddress: {
@@ -50,8 +70,8 @@ const orderSchema = new mongoose.Schema(
     },
     couponApplied: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Coupons'
-    }
+      ref: 'Coupons',
+    },
   },
   { timestamps: true }
 );
