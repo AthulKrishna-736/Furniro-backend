@@ -175,11 +175,12 @@ export const userOrders = async (req, res, next) => {
 // Get individual user orders
 export const getUserOrder = async (req, res, next) => {
   const { userId } = req.params;
-  const limit = 4; 
+  const limit = 7;
   const { page = 1 } = req.query;
 
   try {
-    const orders = await orderModel.find({ userId })
+    const orders = await orderModel
+      .find({ userId })
       .populate({
         path: 'userId',
         select: 'firstName',
@@ -189,7 +190,7 @@ export const getUserOrder = async (req, res, next) => {
         select: 'images name stockQuantity type',
       })
       .select(
-        'selectedAddress totalPrice status payment orderedItems createdAt paymentStatus orderedItems.returnRequest'
+        'selectedAddress totalPrice status payment orderedItems createdAt paymentStatus'
       )
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -219,7 +220,12 @@ export const getUserOrder = async (req, res, next) => {
         price: item.price,
         quantity: item.quantity,
         status: item.status,
-        returnRequest: item.returnRequest,
+        returnRequest: {
+          status: item.returnRequest?.status || 'Not Requested',
+          reason: item.returnRequest?.reason || null,
+          requestedAt: item.returnRequest?.requestedAt || null,
+          updatedAt: item.returnRequest?.updatedAt || null,
+        },
       })),
     }));
 
@@ -274,6 +280,11 @@ export const cancelProduct = async (req, res, next) => {
   console.log('req body here: ', req.body);
 
   try {
+    const product = await productModel.findById(productId);
+    if (!product) {
+      return next({ statusCode: 404, message: 'Product not found in the database' });
+    }
+
     const order = await orderModel.findById(orderId);
     if (!order) {
       return next({ statusCode: 404, message: 'Order not found' });
@@ -311,7 +322,7 @@ export const cancelProduct = async (req, res, next) => {
         wallet.transactions.push({
           type: 'credit',
           amount: productTotalPrice,
-          description: `Refund for cancelled product (${productId}) from order (${orderId})`,
+          description: `Refund for cancelled product (${product.name}) from order (${orderId})`,
           relatedOrderId: orderId,
         });
         await wallet.save();
@@ -323,7 +334,7 @@ export const cancelProduct = async (req, res, next) => {
             {
               type: 'credit',
               amount: productTotalPrice,
-              description: `Refund for cancelled product (${productId}) from order (${orderId})`,
+              description: `Refund for cancelled product (${product.name}) from order (${orderId})`,
               relatedOrderId: orderId,
             },
           ],
@@ -339,7 +350,7 @@ export const cancelProduct = async (req, res, next) => {
           wallet.transactions.push({
             type: 'credit',
             amount: productTotalPrice,
-            description: `Refund for cancelled product (${productId}) from order (${orderId})`,
+            description: `Refund for cancelled product (${product.name}) from order (${orderId})`,
             relatedOrderId: orderId,
           });
           await wallet.save();
@@ -351,7 +362,7 @@ export const cancelProduct = async (req, res, next) => {
               {
                 type: 'credit',
                 amount: productTotalPrice,
-                description: `Refund for cancelled product (${productId}) from order (${orderId})`,
+                description: `Refund for cancelled product (${product.name}) from order (${orderId})`,
                 relatedOrderId: orderId,
               },
             ],
@@ -364,7 +375,6 @@ export const cancelProduct = async (req, res, next) => {
       order.status = 'Cancelled';
       await order.save();
 
-      const product = await productModel.findById(productId);
       if (product) {
         product.stockQuantity += item.quantity;
         await product.save();
@@ -376,7 +386,6 @@ export const cancelProduct = async (req, res, next) => {
       });
     }
 
-    const product = await productModel.findById(productId);
     if (product) {
       product.stockQuantity += item.quantity;
       await product.save();
@@ -449,6 +458,85 @@ export const returnProduct = async (req, res, next) => {
   });
 }
 
+//return product update
+export const returnProductStatus = async (req, res, next) => {
+  const { orderId, productId, action } = req.body;
+  console.log('Request body for returnProductStatus:', req.body);
+
+  try {
+    const order = await orderModel.findOne({
+      _id: orderId,
+      'orderedItems.productId': productId,
+    });
+
+    if (!order) {
+      return next({ statusCode: 404, message: 'Order or Product not found' });
+    }
+
+    const item = order.orderedItems.find(
+      (item) => item.productId.toString() === productId.toString()
+    );
+
+    if (!item) {
+      return next({ statusCode: 404, message: 'Product not found in this order' });
+    }
+
+    if (item.returnRequest?.status === 'Accepted' || item.returnRequest?.status === 'Rejected') {
+      return next({
+        statusCode: 400,
+        message: 'Return request has already been processed',
+      });
+    }
+
+    if (action === 'Accepted') {
+      const product = await productModel.findById(productId);
+      if (!product) {
+        return next({ statusCode: 404, message: 'Product not found in the database' });
+      }
+
+      product.stockQuantity += item.quantity; 
+      await product.save();
+
+      // Credit user wallet
+      const wallet = await walletModel.findOne({ userId: order.userId });
+      if (!wallet) {
+        return next({ statusCode: 404, message: 'Wallet not found for the user' });
+      }
+
+      const refundAmount = item.price * item.quantity; 
+      wallet.balance += refundAmount;
+      wallet.transactions.push({
+        type: 'credit',
+        amount: refundAmount,
+        description: `Refund for returned product: ${product.name}`,
+        relatedOrderId: orderId,
+        date: new Date(),
+      });
+      await wallet.save();
+
+      item.returnRequest.status = 'Accepted';
+      item.returnRequest.updatedAt = new Date();
+
+      item.status = 'Returned';
+    }
+
+    if (action === 'Rejected') {
+      item.returnRequest.status = 'Rejected';
+      item.returnRequest.updatedAt = new Date();
+    }
+
+    await order.save();
+
+    res.status(200).json({
+      message: `Return request ${action} successfully`,
+      productId,
+      updatedReturnRequest: item.returnRequest,
+    });
+  } catch (error) {
+    next({ statusCode: 500, message: 'Internal server error', details: error.message });
+  }
+};
+
 //getall orders
 export const getAllOrders = async (req, res, next) => {
   try {
@@ -492,6 +580,7 @@ export const getAllOrders = async (req, res, next) => {
         discountAmount: discountAmount.toFixed(2),
         couponApplied: order.couponApplied?.name || 'No Coupon',
         status: order.status,
+        paymentStatus: order.paymentStatus,
         createdAt: new Date(order.createdAt).toLocaleString('en-GB', {
           day: '2-digit',
           month: 'short',
@@ -509,6 +598,31 @@ export const getAllOrders = async (req, res, next) => {
           pricePerUnit: item.price,
           quantity: item.quantity,
           totalItemPrice: (item.price * item.quantity).toFixed(2),
+          productStatus: item.status,
+          returnRequest: {
+            status: item.returnRequest?.status || 'N/A',
+            reason: item.returnRequest?.reason || 'No reason provided',
+            requestedAt: item.returnRequest?.requestedAt
+              ? new Date(item.returnRequest.requestedAt).toLocaleString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+              })
+              : 'N/A',
+            updatedAt: item.returnRequest?.updatedAt
+              ? new Date(item.returnRequest.updatedAt).toLocaleString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+              })
+              : 'N/A',
+          },
         })),
       };
     });
@@ -578,7 +692,7 @@ export const updateOrderStatus = async (req, res, next) => {
     order.status = status;
 
     for (const item of order.orderedItems) {
-      if (item.status === 'Shipped') {
+      if (order.status === 'Shipped') {
         item.status = 'Processing';
       } else {
         item.status = status;
@@ -599,18 +713,19 @@ export const updateOrderStatus = async (req, res, next) => {
 
 //razor pay status change
 export const updateStatusRazorpay = async (req, res, next) => {
-  const { paymentStatus } = req.body;
-  const { orderId } = req.params;
+  const { paymentStatus, orderId } = req.body;
+  console.log('req body of razor order: ', req.body)
 
-  const order = await TempOrderModel.findById(orderId);
+  console.log('check this thing worked or not here')
 
+  const order = await orderModel.findById(orderId);
   if (!order) {
     return next({ statusCode: 404, message: 'Order not found' });
   }
 
-  if (paymentStatus === 'Failed') {
-    return next({ statusCode: 400, message: 'Payment failed. Cannot update status.' });
-  }
+  // if (paymentStatus === 'Failed') {
+  //   return next({ statusCode: 400, message: 'Payment failed. Cannot update status.' });
+  // }
 
   if (order.status === 'Cancelled' || order.status === 'Returned') {
     return next({
@@ -626,6 +741,7 @@ export const updateStatusRazorpay = async (req, res, next) => {
   }
 
   await order.save();
+  console.log('order status gets upated as properly here.')
 
   res.status(200).json({ message: 'Order payment status updated successfully', order });
 };

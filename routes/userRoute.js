@@ -65,9 +65,9 @@ userRoute.get('/getOrder/:userId', verifyCsrfToken, checkUserBlock, tokenVerify,
 userRoute.patch('/cancelOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(cancelOrder));
 userRoute.patch('/returnOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(returnOrder));
 userRoute.post('/createOrder', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(createOrder));
-userRoute.put('/updateStatus/:orderId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateStatusRazorpay));
 userRoute.patch('/cancelProduct', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(cancelProduct));
 userRoute.patch('/returnRequest', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(returnProduct));
+userRoute.put('/updateOrderPaymentStatus', checkUserBlock, tokenVerify, asyncHandler(updateStatusRazorpay))
 
 //wishlist
 userRoute.post('/addWishlist', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(addWishlist));

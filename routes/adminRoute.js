@@ -4,7 +4,7 @@ import { addCategory, blockCategory, getCategory, updateCategory } from '../cont
 import { addProduct, blockProducts, editProduct, getAllProducts } from '../controllers/admin/product/productController.js';
 import { adminLogin } from '../controllers/admin/adminLogin.js';
 import { addBanners, editBanner, getBanners } from '../controllers/admin/bannerManage.js';
-import { getAllOrders, updateOrderStatus } from '../controllers/user/orderController.js';
+import { getAllOrders, returnProductStatus, updateOrderStatus } from '../controllers/user/orderController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { adminAuth } from '../middleware/checkAdmin.js';
 import { createCoupon, deleteCoupon, getAllCoupons } from '../controllers/user/couponController.js';
@@ -41,6 +41,7 @@ adminRoute.patch('/editBanners/:id', adminAuth, asyncHandler(editBanner));
 //orders
 adminRoute.get('/getOrders', asyncHandler(getAllOrders));
 adminRoute.patch('/updateOrderStatus', adminAuth, asyncHandler(updateOrderStatus))
+adminRoute.patch('/returnProduct', adminAuth, asyncHandler(returnProductStatus))
 
 //coupon manage
 adminRoute.get('/getCoupons', asyncHandler(getAllCoupons));
@@ -52,8 +53,8 @@ adminRoute.get('/getCatOffers', asyncHandler(getOffers));
 adminRoute.get('/getCat', asyncHandler(getCategories));
 adminRoute.post('/createOffer', adminAuth, asyncHandler(createCatOffer));
 adminRoute.patch('/blockCatOffer/:id', adminAuth, asyncHandler(toggleCatOfferStatus));
-adminRoute.delete('/deleteCatOffer/:id', adminAuth, asyncHandler(deleteOffer))
-adminRoute.get('/catoffers', asyncHandler(getProductsAndOffers))
+adminRoute.delete('/deleteCatOffer/:id', adminAuth, asyncHandler(deleteOffer));
+adminRoute.get('/catoffers', asyncHandler(getProductsAndOffers));
 
 //sales report
 adminRoute.get('/getSalesReport', adminAuth, asyncHandler(generateSalesReport))
