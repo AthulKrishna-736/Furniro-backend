@@ -16,17 +16,22 @@ export const addToCart = async (req, res, next) => {
     return next({ statusCode: 403, message: 'This product is currently unavailable.' });
   }
 
-  if (quantity > product.stockQuantity) {
-    return next({ statusCode: 400, message: 'Not enough stock available' });
+  // Check if the product's category is blocked
+  const category = await categoryModel.findById(product.category);
+  if (!category) {
+    return next({ statusCode: 404, message: 'Category not found' });
+  }
+
+  if (category.isBlocked) {
+    return next({ statusCode: 403, message: 'This category is currently unavailable.' });
   }
 
   let cart = await cartModel.findOne({ userId });
 
   // Fetch active offers for the product's category
-  const category = await categoryModel.findById(product.category);
   const activeOffer = await catOfferModel.findOne({
     categoryId: category._id,
-    isActive: true,  
+    isActive: true,
     startDate: { $lte: new Date() },
     expiryDate: { $gte: new Date() },
   });
@@ -36,60 +41,57 @@ export const addToCart = async (req, res, next) => {
   // Apply the offer if available
   if (activeOffer) {
     if (activeOffer.discountType === 'percentage') {
-      priceAfterOffer = priceAfterOffer - (priceAfterOffer * activeOffer.discountValue) / 100;
+      priceAfterOffer -= (priceAfterOffer * activeOffer.discountValue) / 100;
     } else if (activeOffer.discountType === 'flat') {
-      priceAfterOffer = priceAfterOffer - activeOffer.discountValue;
+      priceAfterOffer -= activeOffer.discountValue;
     }
   }
 
   const totalPriceForProduct = priceAfterOffer * quantity;
 
   if (!cart) {
+    // Create a new cart if one doesn't exist
     cart = new cartModel({
       userId,
-      items: [{
-        productId: product._id,
-        name: product.name,
-        price: priceAfterOffer,
-        quantity,
-      }],
+      items: [
+        {
+          productId: product._id,
+          name: product.name,
+          price: priceAfterOffer,
+          quantity,
+        },
+      ],
       totalPrice: totalPriceForProduct,
     });
-    product.stockQuantity -= quantity;
   } else {
+    // Check if the item already exists in the cart
     const existingItem = cart.items.find(
       (item) => item.productId.toString() === productId
     );
 
     if (existingItem) {
       if (existingItem.quantity >= 5) {
-        return next({ statusCode: 400, message: `Max limit exceeded: You can only add up to 5 units per order` });
+        return next({ statusCode: 400, message: `Max limit exceeded: You can only add up to 5 units per order.` });
       }
 
-      if (existingItem.quantity + quantity > product.stockQuantity) {
-        return next({ statusCode: 400, message: 'Not enough stock available' });
-      }
-
-      product.stockQuantity -= quantity;
-      existingItem.quantity += quantity;
-      existingItem.price = priceAfterOffer;  // Update price after applying offer
+      existingItem.quantity += quantity; // Update the quantity
+      existingItem.price = priceAfterOffer; // Update the price with the active offer, if any
     } else {
+      // Add a new item to the cart
       cart.items.push({
         productId: product._id,
         name: product.name,
         price: priceAfterOffer,
         quantity,
       });
-      product.stockQuantity -= quantity;
     }
 
-    // Recalculate the total price of the cart, considering the discounted price for each item
+    // Recalculate the total price of the cart
     cart.totalPrice = cart.items.reduce((total, item) => {
-      return total + (item.price * item.quantity);  // Recalculate each item's price after discount
+      return total + item.price * item.quantity;
     }, 0);
   }
 
-  await product.save();
   await cart.save();
 
   res.status(200).json({ message: 'Product added to cart', cart });
@@ -180,34 +182,42 @@ export const updateQuantity = async (req, res, next) => {
     return next({ statusCode: 404, message: 'Item not found in cart' });
   }
 
-  const product = await productModel.findById(item.productId._id);
+  const product = item.productId;
   if (!product) {
-    return next({ statusCode: 404, message: 'Product not found' });
+    return next({ statusCode: 404, message: 'Product not found in cart' });
+  }
+
+  // Check if the product is blocked
+  if (product.isBlocked) {
+    return next({ statusCode: 403, message: 'This product is currently unavailable.' });
+  }
+
+  // Check if the category of the product is blocked
+  const category = await categoryModel.findById(product.category);
+  if (!category) {
+    return next({ statusCode: 404, message: 'Category not found' });
+  }
+
+  if (category.isBlocked) {
+    return next({ statusCode: 403, message: 'The category of this product is currently unavailable.' });
   }
 
   const currentQuantity = item.quantity;
-
-
   let newQuantity = currentQuantity;
+
   if (action === 'increase') {
     if (currentQuantity >= 5) {
       return next({ statusCode: 400, message: 'Maximum limit of 5 items per product reached.' });
     }
-    if (product.stockQuantity <=0) {
-      return next({ statusCode:400, message: 'Stock is not available for this product.' });
-    }
     newQuantity += 1;
-    product.stockQuantity -= 1;
   } else if (action === 'decrease') {
     if (currentQuantity > 1) {
       newQuantity -= 1;
-      product.stockQuantity += 1; 
     } else {
       return next({ statusCode: 400, message: 'Minimum quantity must be 1.' });
     }
   }
 
-  await product.save();
   item.quantity = newQuantity;
   await cart.save();
 

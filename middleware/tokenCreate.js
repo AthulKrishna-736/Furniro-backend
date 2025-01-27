@@ -10,12 +10,10 @@ export const tokenExpireTime = {
 }
 
 export const generateAccessToken = (user) => {
-    console.log('accessuser = ', user)
     return jwt.sign({ userId: user._id, role: user.role, version: user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: `${tokenExpireTime.accessToken}s` });
 }
 
 export const generateRefreshToken = (user) => {
-    console.log('refreshuser = ', user)
     return jwt.sign({ userId: user._id, version: user.tokenVersion }, process.env.JWT_REFRESH_SECRET, { expiresIn: `${tokenExpireTime.refreshToken}s` })
 }
   
@@ -34,14 +32,12 @@ export const setCsrfCookie = (res, csrfToken) => {
         httpOnly: false,
         secure: isSecureCookie,
         sameSite: 'strict',
-        maxAge: 3600 * 1000,
     });
 
     res.cookie('csrfTokenSigned', signedToken, {
         httpOnly: true,
         secure: isSecureCookie,
         sameSite: 'strict',
-        maxAge: 3600 * 1000,
     })
 }
 

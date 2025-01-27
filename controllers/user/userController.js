@@ -39,7 +39,6 @@ export const userLogin = async (req, res, next) => {
 
   // Set cookies for user login
   setAuthCookies(res, accessToken, refreshToken);
-  console.log('Cookies set successfully');
 
   res.status(200).json({
     message: 'Login successful',
@@ -61,6 +60,9 @@ export const userLogout = async (req, res, next) => {
     secure: true,
     sameSite: 'strict',
   });
+
+  res.clearCookie('csrfToken', { httpOnly: false, sameSite: 'strict' });
+  res.clearCookie('csrfTokenSigned', { httpOnly: true, sameSite: 'strict' });
 
   res.status(200).json({ message: 'Logout successful' });
 };
@@ -100,11 +102,9 @@ export const googleLogin = async (req, res, next) => {
     audience: process.env.GOOGLE_CLIENT_ID,
   });
 
-  console.log('google ticket : ', ticket)
   const { given_name, family_name, email } = ticket.getPayload();
 
   let user = await userModel.findOne({ email });
-  console.log('Google Login - User:', user);
 
   if (!user) {
     user = await userModel.create({

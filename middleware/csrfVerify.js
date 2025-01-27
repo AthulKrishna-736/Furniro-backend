@@ -10,7 +10,6 @@ export const verifyCsrfToken = (req, res, next) => {
     console.log('Signed CSRF:', csrfTokenSigned);
 
     if (!csrfTokenFromHeader || !csrfTokenFromCookie || !csrfTokenSigned) {
-        console.error('CSRF Token Missing');
         return next({ statusCode: 403, message: 'CSRF Token Missing' });
     }
 
@@ -20,7 +19,6 @@ export const verifyCsrfToken = (req, res, next) => {
         .digest('hex');
 
     if (csrfTokenFromHeader !== csrfTokenFromCookie || csrfTokenSigned !== expectedSignedToken) {
-        console.error('CSRF Validation Failed');
         res.clearCookie('accessToken', { httpOnly: true, secure: true, sameSite: 'strict' });
         res.clearCookie('refreshToken', { httpOnly: true, secure: true, sameSite: 'strict' });
         res.clearCookie('csrfToken', { httpOnly: false, secure: true, sameSite: 'strict' });
@@ -29,6 +27,5 @@ export const verifyCsrfToken = (req, res, next) => {
         return next({ statusCode: 403, message: 'CSRF token validation failed' });
     }
 
-    console.log('CSRF Validation Passed');
     next();
 };
