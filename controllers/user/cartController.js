@@ -100,37 +100,81 @@ export const addToCart = async (req, res, next) => {
 //getcart
 export const getCart = async (req, res, next) => {
   const { userId } = req.params;
+  try {
+    const cart = await cartModel
+      .findOne({ userId })
+      .populate('items.productId', 'name salesPrice images stockQuantity isBlocked category')
+      .select('totalPrice items');
 
-  // Find the cart and populate product details
-  const cart = await cartModel
-    .findOne({ userId })
-    .populate('items.productId', 'name salesPrice images stockQuantity isBlocked')
-    .select('totalPrice items');
-
-  if (!cart) {
-    return next({ statusCode: 404, message: 'Cart not found' });
-  }
-
-  // Update cart total price
-  cart.totalPrice = cart.items.reduce((total, item) => total + item.price * item.quantity, 0);
-  await cart.save();
-
-  const blockedItems = [];
-  cart.items.forEach((item) => {
-    if (item.productId?.isBlocked) {
-      blockedItems.push(item.productId); 
+    if (!cart) {
+      return next({ statusCode: 404, message: 'Cart not found' });
     }
-  });
 
-  if (blockedItems.length > 0) {
-    return res.status(200).json({
-      message: 'Cart retrieved successfully, but some products are blocked. Please remove them to proceed.',
-      cart,
-      blockedItems,
-    });
+    const blockedItems = [];
+    const stockIssues = [];
+    const categoryBlockedItems = [];
+    let cartUpdated = false;
+
+    for (const item of cart.items) {
+      const product = item.productId;
+
+      if (!product) continue;
+
+      if (product.isBlocked) {
+        blockedItems.push({
+          productId: product._id,
+          name: product.name,
+        });
+      }
+
+      const category = await categoryModel.findById(product.category);
+      if (category?.isBlocked) {
+        categoryBlockedItems.push({
+          productId: product._id,
+          name: product.name,
+          categoryName: category.name,
+        });
+      }
+
+      if (product.stockQuantity < item.quantity) {
+        stockIssues.push({
+          productId: product._id,
+          name: product.name,
+          availableStock: product.stockQuantity,
+        });
+      }
+
+      if (item.price !== product.salesPrice) {
+        item.price = product.salesPrice;
+        cartUpdated = true;
+      }
+    }
+
+    const updatedTotalPrice = cart.items.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    );
+
+    if (cartUpdated || cart.totalPrice !== updatedTotalPrice) {
+      cart.totalPrice = updatedTotalPrice;
+      await cart.save();
+    }
+
+    if (blockedItems.length > 0 || stockIssues.length > 0 || categoryBlockedItems.length > 0) {
+      return res.status(200).json({
+        message:
+          'Cart retrieved successfully, but some products have issues. Please review your cart.',
+        cart,
+        blockedItems,
+        categoryBlockedItems,
+        stockIssues,
+      });
+    }
+
+    res.status(200).json({ message: 'Cart retrieved successfully', cart });
+  } catch (error) {
+    next({ statusCode: 500, message: error.message || 'Failed to retrieve cart' });
   }
-
-  res.status(200).json({ message: 'Cart retrieved successfully', cart });
 };
 
 //delete cart items
@@ -166,61 +210,68 @@ export const deleteItems = async (req, res, next) => {
     return next({ statusCode: 404, message: "Item not found in cart" });
   }
 };
-  
+
 //update quantity
 export const updateQuantity = async (req, res, next) => {
   const { itemId, action } = req.body;
   const { userId } = req.params;
 
-  const cart = await cartModel.findOne({ userId }).populate('items.productId');
-  if (!cart) {
-    return next({ statusCode: 404, message: 'Cart not found' });
-  }
-
-  const item = cart.items.find(item => item._id.toString() === itemId);
-  if (!item) {
-    return next({ statusCode: 404, message: 'Item not found in cart' });
-  }
-
-  const product = item.productId;
-  if (!product) {
-    return next({ statusCode: 404, message: 'Product not found in cart' });
-  }
-
-  // Check if the product is blocked
-  if (product.isBlocked) {
-    return next({ statusCode: 403, message: 'This product is currently unavailable.' });
-  }
-
-  // Check if the category of the product is blocked
-  const category = await categoryModel.findById(product.category);
-  if (!category) {
-    return next({ statusCode: 404, message: 'Category not found' });
-  }
-
-  if (category.isBlocked) {
-    return next({ statusCode: 403, message: 'The category of this product is currently unavailable.' });
-  }
-
-  const currentQuantity = item.quantity;
-  let newQuantity = currentQuantity;
-
-  if (action === 'increase') {
-    if (currentQuantity >= 5) {
-      return next({ statusCode: 400, message: 'Maximum limit of 5 items per product reached.' });
+  try {
+    const cart = await cartModel.findOne({ userId }).populate('items.productId');
+    if (!cart) {
+      return next({ statusCode: 404, message: 'Cart not found' });
     }
-    newQuantity += 1;
-  } else if (action === 'decrease') {
-    if (currentQuantity > 1) {
-      newQuantity -= 1;
-    } else {
-      return next({ statusCode: 400, message: 'Minimum quantity must be 1.' });
+
+    const item = cart.items.find((item) => item._id.toString() === itemId);
+    if (!item) {
+      return next({ statusCode: 404, message: 'Item not found in cart' });
     }
+
+    const product = item.productId;
+    if (!product) {
+      return next({ statusCode: 404, message: 'Product not found in cart' });
+    }
+
+    if (product.isBlocked) {
+      return next({ statusCode: 403, message: 'This product is currently unavailable.' });
+    }
+
+    const category = await categoryModel.findById(product.category);
+    if (!category) {
+      return next({ statusCode: 404, message: 'Category not found' });
+    }
+    if (category.isBlocked) {
+      return next({ statusCode: 403, message: 'The category of this product is currently unavailable.' });
+    }
+
+    const currentQuantity = item.quantity;
+    let newQuantity = currentQuantity;
+
+    if (action === 'increase') {
+      if (currentQuantity >= 5) {
+        return next({ statusCode: 400, message: 'Maximum limit of 5 items per product reached.' });
+      }
+      if (currentQuantity + 1 > product.stockQuantity) {
+        return next({
+          statusCode: 400,
+          message: `Insufficient stock. Only ${product.stockQuantity} units available.`,
+        });
+      }
+      newQuantity += 1;
+    } else if (action === 'decrease') {
+      if (currentQuantity > 1) {
+        newQuantity -= 1;
+      } else {
+        return next({ statusCode: 400, message: 'Minimum quantity must be 1.' });
+      }
+    }
+
+    item.quantity = newQuantity;
+
+    await cart.save();
+
+    res.status(200).json({ message: 'Quantity updated successfully', cart });
+  } catch (error) {
+    next({ statusCode: 500, message: error.message || 'Failed to update quantity' });
   }
-
-  item.quantity = newQuantity;
-  await cart.save();
-
-  res.status(200).json({ message: 'Quantity updated successfully', cart });
 };
-

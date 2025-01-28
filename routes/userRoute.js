@@ -8,13 +8,14 @@ import { getUserProducts, productDetails } from '../controllers/admin/product/pr
 import checkUserBlock from '../middleware/checkUserBlock.js';
 import { addAddress, deleteAddress, getAddress, updateAddress } from '../controllers/user/addressController.js';
 import { addToCart, deleteItems, getCart, updateQuantity } from '../controllers/user/cartController.js';
-import { cancelOrder, cancelProduct, getUserOrder, returnOrder, returnProduct, updateStatusRazorpay, userOrders } from '../controllers/user/orderController.js'
+import {  getUserOrder, updateStatusRazorpay, userOrders } from '../controllers/user/orderController.js'
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { createOrder } from '../utils/razorPay.js';
 import { addWishlist, deleteWishlist, getWishlist } from '../controllers/user/wishlistController.js';
 import { getUserWallet, updateWallet } from '../controllers/user/walletController.js';
 import { getUserCoupons } from '../controllers/user/couponController.js';
 import { verifyCsrfToken } from '../middleware/csrfVerify.js';
+import { cancelOrder, cancelProduct, returnOrder, returnProduct } from '../controllers/user/orderUpdations.js';
 
 const userRoute = express.Router();
 

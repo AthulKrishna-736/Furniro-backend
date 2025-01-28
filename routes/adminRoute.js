@@ -4,12 +4,13 @@ import { addCategory, blockCategory, getCategory, updateCategory } from '../cont
 import { addProduct, blockProducts, editProduct, getAllProducts } from '../controllers/admin/product/productController.js';
 import { adminLogin } from '../controllers/admin/adminLogin.js';
 import { addBanners, editBanner, getBanners } from '../controllers/admin/bannerManage.js';
-import { getAllOrders, returnProductStatus, updateOrderStatus } from '../controllers/user/orderController.js';
+import { getAllOrders, updateOrderStatus } from '../controllers/user/orderController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { adminAuth } from '../middleware/checkAdmin.js';
 import { createCoupon, deleteCoupon, getAllCoupons } from '../controllers/user/couponController.js';
 import { getCategories, createCatOffer, toggleCatOfferStatus, getOffers, deleteOffer, getProductsAndOffers } from '../controllers/user/offerController.js'
 import { generateChartData, generateSalesReport, topSellingDetails } from '../controllers/user/salesController.js';
+import { returnProductStatus } from '../controllers/user/orderUpdations.js';
 
 
 const adminRoute = express.Router();
