@@ -5,10 +5,6 @@ export const verifyCsrfToken = (req, res, next) => {
     const csrfTokenFromCookie = req.cookies.csrfToken;
     const csrfTokenSigned = req.cookies.csrfTokenSigned;
 
-    console.log('Header CSRF:', csrfTokenFromHeader);
-    console.log('Cookie CSRF:', csrfTokenFromCookie);
-    console.log('Signed CSRF:', csrfTokenSigned);
-
     if (!csrfTokenFromHeader || !csrfTokenFromCookie || !csrfTokenSigned) {
         return next({ statusCode: 403, message: 'CSRF Token Missing' });
     }

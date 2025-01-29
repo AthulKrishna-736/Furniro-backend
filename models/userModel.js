@@ -1,32 +1,32 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-    firstName:{
-        type:String,
-        required:true
+    firstName: {
+        type: String,
+        required: true
     },
-    lastName:{
-        type:String,
-        required:true
+    lastName: {
+        type: String,
+        required: true
     },
-    email:{
-        type:String,
-        required:true
+    email: {
+        type: String,
+        required: true
     },
-    password:{
-        type:String,
-        required:false
+    password: {
+        type: String,
+        required: false
     },
-    isAdmin:{
-        type:Boolean,
-        default:false,
+    isAdmin: {
+        type: Boolean,
+        default: false,
     },
-    isGoogleUser:{
-        type:Boolean,
-        default:false,
+    isGoogleUser: {
+        type: Boolean,
+        default: false,
     },
-    isBlocked:{
-        type:Boolean,
+    isBlocked: {
+        type: Boolean,
         default: false,
     },
     role: {
@@ -37,11 +37,15 @@ const userSchema = new mongoose.Schema({
     tokenVersion: {
         type: Number,
         default: 0,
-    }
-}, { timestamps:true })
+    },
+    referralCode: {
+        type: String,
+    },
+    referredBy: {
+        type: String,
+        default: null,
+    },
+}, { timestamps: true })
 
-const userModel = mongoose.model('User',userSchema)
+const userModel = mongoose.model('User', userSchema)
 export default userModel;
-
-
-

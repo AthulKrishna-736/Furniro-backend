@@ -8,8 +8,8 @@ dotenv.config();
 export const tokenVerify = async (req, res, next) => {
     const accesstoken = req.cookies.accessToken;
     const refreshtoken = req.cookies.refreshToken;
-    console.log('accesToken', accesstoken);
-    console.log('refreshToken', refreshtoken);
+    // console.log('accesToken', accesstoken);
+    // console.log('refreshToken', refreshtoken);
 
     if (!accesstoken) {
         return res.status(401).json({ message: 'Access token not provided' });

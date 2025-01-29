@@ -1,5 +1,5 @@
 import express from 'express'
-import { checkUser, forgotPass, getIndividualUser, googleLogin, resetPass, updateIndividualUser, userLogin, userLogout, userSignup } from '../controllers/user/userController.js';
+import { applyReferralCode, checkUser, forgotPass, getIndividualUser, googleLogin, resetPass, updateIndividualUser, userLogin, userLogout, userSignup } from '../controllers/user/userController.js';
 import { createOtp, otpVerify, resendOtp } from '../controllers/otp/otpController.js';
 import { otpCheck } from '../controllers/otp/otpCheck.js';
 import { tokenVerify } from '../middleware/tokenVerify.js';
@@ -49,6 +49,7 @@ userRoute.get('/productDetails/:productId', productDetails);
 //accounts
 userRoute.post('/getUserDetail', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(getIndividualUser));
 userRoute.patch('/updateUserDetails', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(updateIndividualUser));
+userRoute.patch('/referral', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(applyReferralCode))
 userRoute.post('/addAddress/:userId', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(addAddress));
 userRoute.get('/getAddress/:userId', checkUserBlock, verifyCsrfToken, asyncHandler(getAddress));
 userRoute.delete('/deleteAddress/:Id', verifyCsrfToken, checkUserBlock, tokenVerify, asyncHandler(deleteAddress));

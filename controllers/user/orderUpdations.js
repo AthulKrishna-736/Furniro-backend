@@ -227,7 +227,6 @@ export const cancelProduct = async (req, res, next) => {
 //return individual product
 export const returnProduct = async (req, res, next) => {
     const { orderId, productId, reason } = req.body;
-    console.log('req body return prod here : ', req.body)
 
     const order = await orderModel.findById(orderId);
     if (!order) {
@@ -282,13 +281,12 @@ export const returnProduct = async (req, res, next) => {
 //return product update
 export const returnProductStatus = async (req, res, next) => {
     const { orderId, productId, action } = req.body;
-    console.log('Request body for returnProductStatus:', req.body);
 
     try {
         const order = await orderModel.findOne({
             _id: orderId,
             'orderedItems.productId': productId,
-        });
+        }).populate('couponApplied');
 
         if (!order) {
             return next({ statusCode: 404, message: 'Order or Product not found' });
@@ -309,6 +307,25 @@ export const returnProductStatus = async (req, res, next) => {
             });
         }
 
+        let partialCouponDiscount = 0;
+        if (order.couponApplied) {
+            const totalQuantity = order.orderedItems.reduce((sum, orderedItem) => sum + orderedItem.quantity, 0);
+            const couponValue = order.couponApplied.discountValue;
+
+            if (order.couponApplied.discountType === 'FLAT') {
+                const perProductDiscount = couponValue / totalQuantity;
+                partialCouponDiscount = +(perProductDiscount * item.quantity).toFixed(2);
+            } else if (order.couponApplied.discountType === 'PERCENTAGE') {
+                const totalItemsPrice = order.orderedItems.reduce((sum, orderedItem) => {
+                    return sum + orderedItem.price * orderedItem.quantity;
+                }, 0);
+                const percentageDiscount = (order.couponApplied.discountValue / 100);
+                const totalDiscount = percentageDiscount * totalItemsPrice;
+                const perProductDiscount = totalDiscount / totalQuantity;
+                partialCouponDiscount = +(perProductDiscount * item.quantity).toFixed(2);
+            }
+        }
+
         if (action === 'Accepted') {
             const product = await productModel.findById(productId);
             if (!product) {
@@ -324,7 +341,7 @@ export const returnProductStatus = async (req, res, next) => {
                 return next({ statusCode: 404, message: 'Wallet not found for the user' });
             }
 
-            const refundAmount = item.price * item.quantity;
+            const refundAmount = (item.price * item.quantity) - partialCouponDiscount;
             wallet.balance += refundAmount;
             wallet.transactions.push({
                 type: 'credit',
@@ -337,7 +354,6 @@ export const returnProductStatus = async (req, res, next) => {
 
             item.returnRequest.status = 'Accepted';
             item.returnRequest.updatedAt = new Date();
-
             item.status = 'Returned';
         }
 
