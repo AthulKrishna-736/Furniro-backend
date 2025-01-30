@@ -13,7 +13,6 @@ export const getUsers = async (req, res, next) => {
 // Block users
 export const blockUser = async (req, res, next) => {
   const { id } = req.params;
-  console.log('id on params: ', id);
 
   const user = await userModel.findById(id).catch((error) => {
     console.error('Error finding user:', error);

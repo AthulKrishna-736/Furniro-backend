@@ -18,11 +18,9 @@ export const addBanners = async (req, res, next) => {
   const { bannerLocation, image } = req.body;
 
   if (!bannerLocation || !image) {
-    console.log('missing thing', [bannerLocation, image]);
     return next({ statusCode: 400, message: 'Banner location and image are missing.' });
   }
 
-  console.log('values are properly there its time for the uploading face');
 
   const banner = new bannerModel({
     bannerLocation: bannerLocation,
@@ -43,7 +41,6 @@ export const editBanner = async (req, res, next) => {
   const { image, bannerLocation } = req.body;
 
   if (!id || !image || !bannerLocation) {
-    console.log('some thing is missing here');
     return next({ statusCode: 400, message: 'Banner ID, location, and image are required.' });
   }
 

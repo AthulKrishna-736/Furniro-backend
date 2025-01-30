@@ -58,8 +58,6 @@ export const updateAddress = async (req, res, next) => {
   const { id } = req.params;
   const updateData = req.body;
 
-  console.log('Request body and params in updateAddress: ', [req.params, req.body]);
-
   if (!id) {
       return next({ statusCode: 400, message: 'Address ID is required' });
   }
@@ -68,14 +66,12 @@ export const updateAddress = async (req, res, next) => {
   if(!existingAddress) {
     return next({ statusCode: 404, message: 'Address not found' });
   }
-  console.log('existing add: ',existingAddress)
 
   const hasChanges = Object.keys(updateData).some(
     (key) => updateData[key] !== existingAddress[key]?.toString() // Convert to string for safe comparison
   );
 
   if(!hasChanges) {
-    console.log('skipping no changes detected ')
     return next({ statusCode:200, message:'No changes detected' })
   }
 
@@ -85,7 +81,6 @@ export const updateAddress = async (req, res, next) => {
       { new: true }
   );
 
-  console.log('update address: ', updateAddress)
 
   if (!updatedAddress) {
       return next({ statusCode: 404, message: 'Address not found' });

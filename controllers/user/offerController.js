@@ -73,7 +73,6 @@ export const toggleCatOfferStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    console.log("Request params =", req.params);
 
 
     const categoryOffer = await catOfferModel.findById(id);
@@ -85,7 +84,6 @@ export const toggleCatOfferStatus = async (req, res, next) => {
     // Toggle the isActive status
     categoryOffer.isActive = !categoryOffer.isActive;
     await categoryOffer.save();
-    console.log('blocked succesfully')
     res.status(200).json({
       message: `Category offer ${categoryOffer.isActive ? "unblocked" : "blocked"} successfully`,
     });

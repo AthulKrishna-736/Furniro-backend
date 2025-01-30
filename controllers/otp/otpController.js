@@ -11,10 +11,8 @@ const otpStore = new Map();
 //create otp 
 export const createOtp = async (req, res, next) => {
   const { email, isSignup } = req.body;
-  console.log('req of c otp = ', req.body);
 
   if(!email){
-    console.log('email is empty')
     return next({ statusCode: 404, message:'email is not found' });
   }
 
@@ -22,7 +20,6 @@ export const createOtp = async (req, res, next) => {
     const user = await userModel.findOne({ email });
 
     if (!user) {
-      console.log('User not found in c otp');
       return next({ statusCode: 404, message: 'User not found. Please try again' });
     }
   }
@@ -32,8 +29,6 @@ export const createOtp = async (req, res, next) => {
   otpExpireAt.setMinutes(otpExpireAt.getMinutes() + 2);
   otpStore.set(email, { otp, otpExpireAt });
 
-  console.log('OTP created = ', otp);
-  console.log('OTP store = ', otpStore);
 
   setTimeout(() => otpStore.delete(email), 2 * 60 * 1000);
 
@@ -60,16 +55,13 @@ export const createOtp = async (req, res, next) => {
     `,
   };
 
-  console.log('Email is sending...');
   transporter.sendMail(mailOptions, (error, 
     
   ) => {
     if (error) {
-      console.log('Error sending email:', error);
       return next({ statusCode: 500, message: 'Internal server error. Please try again later.' });
     }
 
-    console.log('Email has been sent');
     return res.status(200).json({
       message: 'OTP sent successfully',
       otpExpireAt,
@@ -81,19 +73,15 @@ export const createOtp = async (req, res, next) => {
 export const otpVerify = async (req, res, next) => {
   const { email, otp } = req.body;
 
-  console.log('req body of verifyotp = ', req.body);
 
   if (!email || !otp) {
-    console.log('No email or otp present in req.body');
     return next({ statusCode: 400, message: 'Email and OTP are required' });
   }
 
   // Getting OTP from stored data
   const storedData = otpStore.get(email);
-  console.log('Stored data in verifyotp = ', storedData);
 
   if (!storedData) {
-    console.log('Stored data is undefined or OTP expired');
     return next({ statusCode: 400, message: 'OTP has expired or is invalid' });
   }
 
@@ -105,11 +93,9 @@ export const otpVerify = async (req, res, next) => {
   }
 
   if (storedOtp !== parseInt(otp, 10)) {
-    console.log('Incorrect OTP entered...');
     return next({ statusCode: 400, message: 'Incorrect OTP. Please try again.' });
   }
 
-  console.log('OTP successfully verified!!!');
 
   otpStore.delete(email);
   return res.status(200).json({ success: true, message: 'OTP verified successfully' });
@@ -118,11 +104,9 @@ export const otpVerify = async (req, res, next) => {
 //resent otp 
 export const resendOtp = async (req, res, next) => {
   const { email } = req.body;
-  console.log('Request body for resend OTP: ', req.body);
 
   const user = await userModel.findOne({ email });
   if (!user) {
-    console.log('User not found in resend OTP');
     return next({ statusCode: 404, message: 'User not found. Please try again' });
   }
 
@@ -131,8 +115,6 @@ export const resendOtp = async (req, res, next) => {
   otpExpireAt.setMinutes(otpExpireAt.getMinutes() + 2); 
   otpStore.set(email, { otp, otpExpireAt });
 
-  console.log('OTP created = ', otp);
-  console.log('OTP store = ', otpStore);
   setTimeout(() => otpStore.delete(email), 2 * 60 * 1000);
 
   const transporter = nodemailer.createTransport({
@@ -160,11 +142,9 @@ export const resendOtp = async (req, res, next) => {
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      console.log('Error sending email:', error);
       return next({ statusCode: 500, message: 'Internal server error. Please try again later.' });
     }
 
-    console.log('Email has been sent');
     return res.status(200).json({
       message: 'OTP resent successfully',
       otpExpireAt,

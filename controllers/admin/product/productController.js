@@ -46,12 +46,10 @@ export const getAllProducts = async (req, res, next) => {
 //block products
 export const blockProducts = async (req, res, next) => {
   const { id } = req.params;
-  console.log('req params = ', req.params);
 
   const product = await productModel.findById(id);
   
   if (!product) {
-    console.log('No product found for this id');
     return next({ statusCode: 404, message: 'Product not found' });
   }
 
@@ -71,7 +69,6 @@ export const blockProducts = async (req, res, next) => {
 //get user product
 export const getUserProducts = async (req, res, next) => {
   const { page = 1, limit = 8, sortBy, categoryId } = req.query;
-  console.log('req query in here: ', req.query);
 
   const skip = (page - 1) * limit;
 
@@ -154,8 +151,6 @@ export const productDetails = async (req, res, next) => {
 export const editProduct = async (req, res, next) => {
   const { productId } = req.params; 
   const { name, description, salesPrice, category, images, stockQuantity } = req.body;
-  console.log('product update req',req.body)
-  console.log('req body in editproduct: ', [req.body, req.params]);
 
   const product = await productModel.findById(productId);
 
