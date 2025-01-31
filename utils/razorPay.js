@@ -21,7 +21,7 @@ export const createOrder = async (req, res, next) => {
 
         if (!amount || !currency || !userId) {
             console.log('datas: ', amount, currency, userId)
-            res.status(400).json({ statusCode: 400, message: 'Missing fields required' })
+           return res.status(400).json({ statusCode: 400, message: 'Missing fields required' })
         }
 
         const user = await userModel.findById(userId);
