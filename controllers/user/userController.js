@@ -116,6 +116,13 @@ export const googleLogin = async (req, res, next) => {
   let user = await userModel.findOne({ email });
 
   if (!user) {
+
+    const generateReferralCode = () => {
+      return crypto.randomBytes(6).toString("hex").toUpperCase();
+    };
+
+    const referralCode = generateReferralCode();
+
     user = await userModel.create({
       firstName: given_name,
       lastName: family_name,
@@ -123,6 +130,7 @@ export const googleLogin = async (req, res, next) => {
       isGoogleUser: true,
       password: null,
       role: 'user',
+      referralCode,
     });
   }
 

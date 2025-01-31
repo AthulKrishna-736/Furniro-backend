@@ -99,7 +99,7 @@ export const createCoupon = async (req, res, next) => {
     expiryDate,
     count,
   });
-  
+
   const savedCoupon = await newCoupon.save();
 
   res.status(201).json({
@@ -156,16 +156,31 @@ export const getAllCoupons = async (req, res, next) => {
 
 //get user coupons
 export const getUserCoupons = async (req, res, next) => {
-  const coupons = await couponModel.find().sort({ createdAt: -1 });
-  if (!coupons || coupons.length === 0) {
-    return next({
-      statusCode: 404,
-      message: "No coupons available"
+  try {
+    const currentTime = new Date(); 
+
+    const coupons = await couponModel
+      .find({ expiryDate: { $gte: currentTime } })
+      .sort({ createdAt: -1 });
+
+    if (!coupons || coupons.length === 0) {
+      return next({
+        statusCode: 404,
+        message: "No active coupons available",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Active coupons retrieved successfully",
+      coupons,
+    });
+  } catch (error) {
+    console.error("Error retrieving coupons:", error);
+    next({
+      statusCode: 500,
+      message: "Error retrieving coupons. Please try again later.",
     });
   }
-  res.status(200).json({
-    success: true,
-    message: "Coupons retrieved successfully",
-    coupons,
-  });
 };
+
