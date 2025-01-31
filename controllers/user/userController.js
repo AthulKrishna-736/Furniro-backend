@@ -126,6 +126,10 @@ export const googleLogin = async (req, res, next) => {
     });
   }
 
+  if (user.isBlocked) {
+    return next({ statusCode: 403, message: 'Access blocked by admin. Please contact support.' })
+  }
+
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
@@ -152,7 +156,7 @@ export const forgotPass = async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    message: 'User found. Proceeding to send OTP.',
+    message: 'User found. Proceeding to Login.',
   });
 };
 
@@ -236,7 +240,7 @@ export const applyReferralCode = async (req, res, next) => {
     return next({ statusCode: 404, message: 'User not found.' });
   }
 
-  if(user.referredBy){
+  if (user.referredBy) {
     return next({ statusCode: 400, message: 'You can only receive the referral reward once. You have already applied a referral code.' })
   }
 

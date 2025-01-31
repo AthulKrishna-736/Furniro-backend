@@ -115,16 +115,22 @@ export const getCart = async (req, res, next) => {
     const categoryBlockedItems = [];
     let cartUpdated = false;
 
+    const now = new Date();
+
+    // Loop through each item in the cart
     for (const item of cart.items) {
       const product = item.productId;
 
       if (!product) continue;
 
+      // Check if product is blocked
       if (product.isBlocked) {
         blockedItems.push({
           productId: product._id,
           name: product.name,
         });
+        item.price = product.salesPrice;  
+        cartUpdated = true;
       }
 
       const category = await categoryModel.findById(product.category);
@@ -134,6 +140,8 @@ export const getCart = async (req, res, next) => {
           name: product.name,
           categoryName: category.name,
         });
+        item.price = product.salesPrice; 
+        cartUpdated = true;
       }
 
       if (product.stockQuantity < item.quantity) {
@@ -144,7 +152,22 @@ export const getCart = async (req, res, next) => {
         });
       }
 
-      if (item.price !== product.salesPrice) {
+      // Fetch the active category offer for the product's category
+      const activeCategoryOffer = await catOfferModel.findOne({
+        categoryId: category._id,
+        isActive: true,
+        startDate: { $lte: now },
+        expiryDate: { $gte: now },
+      });
+
+      if (activeCategoryOffer) {
+        if (activeCategoryOffer.discountType === 'percentage') {
+          item.price = product.salesPrice - (product.salesPrice * activeCategoryOffer.discountValue) / 100;
+        } else if (activeCategoryOffer.discountType === 'flat') {
+          item.price = product.salesPrice - activeCategoryOffer.discountValue;
+        }
+        cartUpdated = true;
+      } else {
         item.price = product.salesPrice;
         cartUpdated = true;
       }
@@ -162,8 +185,7 @@ export const getCart = async (req, res, next) => {
 
     if (blockedItems.length > 0 || stockIssues.length > 0 || categoryBlockedItems.length > 0) {
       return res.status(200).json({
-        message:
-          'Cart retrieved successfully, but some products have issues. Please review your cart.',
+        message: 'Cart retrieved successfully, but some products have issues. Please review your cart.',
         cart,
         blockedItems,
         categoryBlockedItems,

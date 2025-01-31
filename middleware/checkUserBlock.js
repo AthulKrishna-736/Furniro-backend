@@ -3,16 +3,11 @@ import userModel from "../models/userModel.js";
 const checkUserBlock = async (req, res, next) => {
     try {
         const email = req.params.emailInt || req.query.email || req.params.email; 
-        console.log('req body middleware: ',req.params);
-        console.log('req param middleware: ', req.query);
-        console.log('req param email: ', req.params.emailInt)
-        console.log('check email middle: ', email)
 
         if (!email) {
-            console.log('email is required..!');
             return res.status(400).json({ 
                 isBlocked: true, 
-                message: 'Email is required to proceed.' 
+                message: 'Please login to proceed' 
             });
         }
 

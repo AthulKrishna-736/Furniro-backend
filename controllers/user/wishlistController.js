@@ -153,28 +153,72 @@ import wishlistModel from "../../models/wishlistModel.js";
 
   //getwishlist
   export const getWishlist = async (req, res, next) => {
-    const { userId } = req.params; 
+    const { userId } = req.params;
   
     if (!userId) {
       return next({ statusCode: 400, message: 'User ID is required' });
     }
   
-    const wishlist = await wishlistModel.findOne({ userId })
-      .populate('products.productId', 'name price images')
-      .exec();
+    try {
+      const wishlist = await wishlistModel.findOne({ userId })
+        .populate('products.productId', 'name salesPrice images category')
+        .exec();
   
-    if (!wishlist) {
-      return next({ statusCode: 404, message: 'Wishlist not found' });
+      if (!wishlist) {
+        return next({ statusCode: 404, message: 'Wishlist not found' });
+      }
+  
+      const now = new Date();
+      let wishlistUpdated = false;
+  
+      // Loop through the wishlist products and apply category offer if active
+      for (const productItem of wishlist.products) {
+        const product = productItem.productId;
+  
+        if (!product) continue;
+  
+        const category = await categoryModel.findById(product.category);
+        if (!category) continue;
+  
+        const activeCategoryOffer = await catOfferModel.findOne({
+          categoryId: category._id,
+          isActive: true,
+          startDate: { $lte: now },
+          expiryDate: { $gte: now },
+        });
+  
+        if (activeCategoryOffer) {
+          if (activeCategoryOffer.discountType === 'percentage') {
+            productItem.price = product.salesPrice - (product.salesPrice * activeCategoryOffer.discountValue) / 100;
+          } else if (activeCategoryOffer.discountType === 'flat') {
+            productItem.price = product.salesPrice - activeCategoryOffer.discountValue;
+          }
+          wishlistUpdated = true;
+        } else {
+          productItem.price = product.salesPrice;
+          wishlistUpdated = true;
+        }
+      }
+  
+      const updatedTotalPrice = wishlist.products.reduce(
+        (total, productItem) => total + productItem.price,
+        0
+      );
+  
+      if (wishlistUpdated || wishlist.totalPrice !== updatedTotalPrice) {
+        wishlist.totalPrice = updatedTotalPrice;
+        await wishlist.save();
+      }
+  
+      res.status(200).json({
+        message: 'Wishlist fetched successfully',
+        wishlist: wishlist.products,
+        totalPrice: wishlist.totalPrice,
+      });
+  
+    } catch (error) {
+      next({ statusCode: 500, message: error.message || 'Failed to retrieve wishlist' });
     }
-
-    wishlist.products = wishlist.products.sort(
-      (a,b) => new Date(b.addedAt) - new Date(a.addedAt)
-    );
-  
-    res.status(200).json({
-      message: 'Wishlist fetched successfully',
-      wishlist: wishlist.products,
-      totalPrice: wishlist.totalPrice,
-    });
   };
+  
   
