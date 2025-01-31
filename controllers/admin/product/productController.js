@@ -161,10 +161,6 @@ export const getUserProducts = async (req, res, next) => {
   }
 };
 
-//product details
-import categoryModel from './path/to/categoryModel';
-import catOfferModel from './path/to/catOfferModel';
-
 export const productDetails = async (req, res, next) => {
   const { productId } = req.params;
 
