@@ -108,7 +108,7 @@ export const userOrders = async (req, res, next) => {
       return next({ statusCode: 400, message: 'Wallet not found' });
     }
 
-    if (wallet.balance < totalPrice) {
+    if (wallet.balance <= totalPrice) {
       return next({ statusCode: 400, message: 'Insufficient balance in wallet' });
     }
   }

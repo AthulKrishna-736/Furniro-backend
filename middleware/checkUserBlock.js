@@ -14,7 +14,6 @@ const checkUserBlock = async (req, res, next) => {
         const user = await userModel.findOne({ email });
 
         if (!user) {
-            console.log('user not found')
             return res.status(404).json({ 
                 isBlocked: true, 
                 message: 'User not found.' 
@@ -22,13 +21,11 @@ const checkUserBlock = async (req, res, next) => {
         }
 
         if (user.isBlocked) {
-            console.log('user is blocked');
             return res.status(403).json({ 
                 isBlocked: true, 
                 message: 'User is blocked.' 
             });
         }
-        console.log('user is active')
         next();
     } catch (error) {
         console.error("Error checking user block status:", error);

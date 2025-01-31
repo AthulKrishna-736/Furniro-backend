@@ -8,15 +8,12 @@ dotenv.config();
 export const tokenVerify = async (req, res, next) => {
     const accesstoken = req.cookies.accessToken;
     const refreshtoken = req.cookies.refreshToken;
-    // console.log('accesToken', accesstoken);
-    // console.log('refreshToken', refreshtoken);
 
     if (!accesstoken) {
         return res.status(401).json({ message: 'Access token not provided' });
     }
     try {
         const decoded = jwt.verify(accesstoken, process.env.JWT_SECRET);
-        console.log('Access token decoded:', decoded);
 
         const user = await userModel.findById(decoded.userId);
         if (!user || user.tokenVersion !== decoded.version) {
@@ -32,7 +29,6 @@ export const tokenVerify = async (req, res, next) => {
 
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
-            console.log('Access token expired');
 
             if (!refreshtoken) {
                 return res.status(401).json({ message: 'Both tokens expired. Please log in again.' });
@@ -60,7 +56,6 @@ export const tokenVerify = async (req, res, next) => {
                     role: user.role,
                 }
 
-                console.log('accesstoken refreshed successfully');
             } catch (refreshError) {
                 console.error('Refresh token verification failed:', refreshError);
                 return res.status(403).json({ message: 'Invalid or expired refresh token. Please log in again.' });
