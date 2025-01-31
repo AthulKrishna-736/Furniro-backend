@@ -1,9 +1,11 @@
 import cartModel from "../../models/cartModel.js";
+import categoryModel from "../../models/categorySchema.js";
+import catOfferModel from "../../models/catOffers.js";
 import productModel from "../../models/productSchema.js";
 import userModel from "../../models/userModel.js";
 import wishlistModel from "../../models/wishlistModel.js";
 
-  //add to wishlist
+//add to wishlist
   export const addWishlist = async (req, res, next) => {
     const { userId, productId } = req.body;
   

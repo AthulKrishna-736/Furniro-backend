@@ -1,3 +1,5 @@
+import categoryModel from "../../../models/categorySchema.js";
+import catOfferModel from "../../../models/catOffers.js";
 import productModel from "../../../models/productSchema.js";
 
 //add product
@@ -17,7 +19,7 @@ export const addProduct = async (req, res, next) => {
     salesPrice,
     stockQuantity,
     images,
-    
+
   });
 
   // Save product to database
@@ -42,19 +44,19 @@ export const getAllProducts = async (req, res, next) => {
 
   return res.status(200).json({ message: 'Got all products', products });
 };
-  
+
 //block products
 export const blockProducts = async (req, res, next) => {
   const { id } = req.params;
 
   const product = await productModel.findById(id);
-  
+
   if (!product) {
     return next({ statusCode: 404, message: 'Product not found' });
   }
 
-  product.isBlocked = !product.isBlocked; 
-  
+  product.isBlocked = !product.isBlocked;
+
   await product.save().catch((error) => {
     console.error('Error saving product:', error.message);
     return next({ statusCode: 500, message: 'Error while saving product' });
@@ -74,7 +76,7 @@ export const getUserProducts = async (req, res, next) => {
 
   const query = { isBlocked: false };
   if (categoryId) {
-    query.category = categoryId; 
+    query.category = categoryId;
   }
 
   let sort = {};
@@ -95,21 +97,51 @@ export const getUserProducts = async (req, res, next) => {
       sort = { name: -1 };
       break;
     default:
-      sort = {}; 
+      sort = {};
       break;
   }
 
+  try {
     const totalProducts = await productModel.countDocuments(query);
 
     const allProducts = await productModel
       .find(query)
-      .sort(sort) 
+      .sort(sort)
       .skip(skip)
-      .limit(Number(limit)) 
+      .limit(Number(limit))
       .populate('category', 'name isBlocked');
 
+    const now = new Date();
+
+    // Adjust prices based on active category offers
+    const productsWithAdjustedPrices = await Promise.all(
+      allProducts.map(async (product) => {
+        if (product.category && !product.category.isBlocked) {
+          const activeCategoryOffer = await catOfferModel.findOne({
+            categoryId: product.category._id,
+            isActive: true,
+            startDate: { $lte: now },
+            expiryDate: { $gte: now },
+          });
+
+          // Apply active category offer if available
+          if (activeCategoryOffer) {
+            if (activeCategoryOffer.discountType === 'percentage') {
+              product.salesPrice =
+                product.salesPrice -
+                (product.salesPrice * activeCategoryOffer.discountValue) / 100;
+            } else if (activeCategoryOffer.discountType === 'flat') {
+              product.salesPrice =
+                product.salesPrice - activeCategoryOffer.discountValue;
+            }
+          }
+        }
+        return product;
+      })
+    );
+
     // Filter out blocked categories
-    const filteredProducts = allProducts.filter(
+    const filteredProducts = productsWithAdjustedPrices.filter(
       (product) => product.category && !product.category.isBlocked
     );
 
@@ -124,32 +156,96 @@ export const getUserProducts = async (req, res, next) => {
       totalPages: Math.ceil(totalProducts / limit),
       currentPage: Number(page),
     });
+  } catch (error) {
+    next({ statusCode: 500, message: error.message || 'Failed to fetch products' });
+  }
 };
 
 //product details
+import categoryModel from './path/to/categoryModel';
+import catOfferModel from './path/to/catOfferModel';
+
 export const productDetails = async (req, res, next) => {
-  const { productId } = req.params; 
+  const { productId } = req.params;
 
-  const product = await productModel.findById(productId);
+  try {
+    // Fetch the product
+    const product = await productModel
+      .findById(productId)
+      .populate('category', 'name isBlocked currentOffer');
 
-  if (!product) {
-    return res.status(404).json({ message: 'Product not found' });
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check for active category offer
+    let adjustedPrice = product.salesPrice;
+    const category = product.category;
+
+    if (category && !category.isBlocked && category.currentOffer) {
+      const offer = await catOfferModel.findById(category.currentOffer);
+
+      if (offer && offer.isActive && new Date() < new Date(offer.expiryDate)) {
+        if (offer.discountType === 'percentage') {
+          adjustedPrice = Math.max(0, product.salesPrice - (product.salesPrice * offer.discountValue) / 100);
+        } else if (offer.discountType === 'flat') {
+          adjustedPrice = Math.max(0, product.salesPrice - offer.discountValue);
+        }
+      }
+    }
+
+    // Fetch recommended products
+    const recommendedProducts = await productModel
+      .find({
+        category: product.category,
+        _id: { $ne: productId },
+        isBlocked: false,
+      })
+      .populate('category', 'name isBlocked currentOffer')
+      .limit(4);
+
+    // Adjust prices for recommended products based on category offer
+    const adjustedRecommendedProducts = await Promise.all(
+      recommendedProducts.map(async (recProduct) => {
+        let recAdjustedPrice = recProduct.salesPrice;
+        const recCategory = recProduct.category;
+
+        if (recCategory && !recCategory.isBlocked && recCategory.currentOffer) {
+          const recOffer = await catOfferModel.findById(recCategory.currentOffer);
+
+          if (recOffer && recOffer.isActive && new Date() < new Date(recOffer.expiryDate)) {
+            if (recOffer.discountType === 'percentage') {
+              recAdjustedPrice = Math.max(0, recProduct.salesPrice - (recProduct.salesPrice * recOffer.discountValue) / 100);
+            } else if (recOffer.discountType === 'flat') {
+              recAdjustedPrice = Math.max(0, recProduct.salesPrice - recOffer.discountValue);
+            }
+          }
+        }
+
+        return {
+          ...recProduct.toObject(),
+          salesPrice: recAdjustedPrice, 
+        };
+      })
+    );
+
+    // Return the product and adjusted recommended products
+    return res.status(200).json({
+      product: {
+        ...product.toObject(),
+        salesPrice: adjustedPrice, // Adjusted price for the main product
+      },
+      recommendedProducts: adjustedRecommendedProducts,
+    });
+  } catch (error) {
+    next({ statusCode: 500, message: error.message || 'Failed to fetch product details' });
   }
-
-  const recommendedProducts = await productModel.find({
-    category: product.category,
-    _id: { $ne: productId },   
-  }).limit(4);
-
-  return res.status(200).json({
-    product,
-    recommendedProducts,
-  });
 };
+
 
 //edit product 
 export const editProduct = async (req, res, next) => {
-  const { productId } = req.params; 
+  const { productId } = req.params;
   const { name, description, salesPrice, category, images, stockQuantity } = req.body;
 
   const product = await productModel.findById(productId);
