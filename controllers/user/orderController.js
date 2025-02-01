@@ -413,9 +413,6 @@ export const updateOrderStatus = async (req, res, next) => {
 //razor pay status change
 export const updateStatusRazorpay = async (req, res, next) => {
   const { paymentStatus, orderId } = req.body;
-  console.log('req body of razor order: ', req.body)
-
-  console.log('check this thing worked or not here')
 
   const order = await orderModel.findById(orderId);
   if (!order) {

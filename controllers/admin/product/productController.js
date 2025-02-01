@@ -24,7 +24,6 @@ export const addProduct = async (req, res, next) => {
 
   // Save product to database
   await newProduct.save().catch((error) => {
-    console.error('Error adding product:', error.message);
     return next({ statusCode: 500, message: 'Server error, please try again later.' });
   });
 
@@ -34,7 +33,6 @@ export const addProduct = async (req, res, next) => {
 //get products
 export const getAllProducts = async (req, res, next) => {
   const products = await productModel.find().populate('category').catch((error) => {
-    console.error('Error fetching products:', error.message);
     return next({ statusCode: 500, message: 'Failed to fetch products, please try again later.' });
   });
 
@@ -58,7 +56,6 @@ export const blockProducts = async (req, res, next) => {
   product.isBlocked = !product.isBlocked;
 
   await product.save().catch((error) => {
-    console.error('Error saving product:', error.message);
     return next({ statusCode: 500, message: 'Error while saving product' });
   });
 

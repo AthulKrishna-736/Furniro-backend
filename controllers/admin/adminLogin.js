@@ -5,7 +5,6 @@ export const adminLogin = async (req, res, next) => {
   const { email, password } = req.body;
 
   const user = await userModel.findOne({ email }).catch((error) => {
-    console.error('Error finding user:', error);
     return next({ statusCode: 400, message: 'User not found' });
   });
 
@@ -18,7 +17,6 @@ export const adminLogin = async (req, res, next) => {
   }
 
   const isPasswordCorrect = await bcrypt.compare(password, user.password).catch((error) => {
-    console.error('Error comparing passwords:', error);
     return next({ statusCode: 400, message: 'Invalid credentials' });
   });
 

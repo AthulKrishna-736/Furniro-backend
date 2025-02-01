@@ -72,9 +72,6 @@ export const createCatOffer = async (req, res, next) => {
 export const toggleCatOfferStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-
-
     const categoryOffer = await catOfferModel.findById(id);
 
     if (!categoryOffer) {
@@ -138,15 +135,12 @@ export const getCategories = async (req, res, next) => {
 export const deleteOffer = async (req, res, next) => {
   try {
     const { id } = req.params;
-    console.log("Request to delete offer with ID =", id);
-
     const categoryOffer = await catOfferModel.findById(id);
     if (!categoryOffer) {
       return res.status(404).json({ message: "Category offer not found" });
     }
     await categoryOffer.deleteOne();
 
-    console.log("Offer deleted successfully");
     res.status(200).json({ message: "Category offer deleted successfully" });
   } catch (error) {
     console.error("Error in deleteOffer:", error);

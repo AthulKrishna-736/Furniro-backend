@@ -9,7 +9,6 @@ export const addCategory = async (req, res, next) => {
     const existingCategory = await categoryModel.findOne({
         name: { $regex: new RegExp(`^${lowerCaseName}$`, "i") }
     }).catch((error) => {
-        console.error('Error checking category existence:', error.message);
         return next({ statusCode: 500, message: 'Error adding category', error: error.message });
     });
 
@@ -20,7 +19,6 @@ export const addCategory = async (req, res, next) => {
     const newCategory = new categoryModel({ name, description });
 
     await newCategory.save().catch((error) => {
-        console.error('Error saving new category:', error.message);
         return next({ statusCode: 500, message: 'Error saving category', error: error.message });
     });
 
@@ -32,7 +30,6 @@ export const blockCategory = async (req, res, next) => {
     const { id } = req.params;
 
     const category = await categoryModel.findById(id).catch((error) => {
-        console.error('Error finding category:', error.message);
         return next({ statusCode: 500, message: 'Failed to update category status', error: error.message });
     });
 
@@ -43,7 +40,6 @@ export const blockCategory = async (req, res, next) => {
     category.isBlocked = !category.isBlocked;
 
     await category.save().catch((error) => {
-        console.error('Error saving category status:', error.message);
         return next({ statusCode: 500, message: 'Failed to update category status', error: error.message });
     });
 
@@ -56,7 +52,6 @@ export const blockCategory = async (req, res, next) => {
 // Get all categories
 export const getCategory = async (req, res, next) => {
     const categories = await categoryModel.find().catch((error) => {
-        console.error('Error fetching categories:', error.message);
         return next({ statusCode: 500, message: 'Failed to fetch categories', error: error.message });
     });
 
@@ -69,7 +64,6 @@ export const updateCategory = async (req, res, next) => {
     const { name, description } = req.body;
 
     const category = await categoryModel.findById(id).catch((error) => {
-        console.error('Error finding category:', error.message);
         return next({ statusCode: 500, message: 'Failed to update category', error: error.message });
     });
 
@@ -83,7 +77,6 @@ export const updateCategory = async (req, res, next) => {
             name: { $regex: new RegExp(`^${lowerCaseName}$`, "i") },
             _id: { $ne: id }
         }).catch((error) => {
-            console.error('Error checking category name:', error.message);
             return next({ statusCode: 500, message: 'Error checking category name', error: error.message });
         });
 
@@ -100,7 +93,6 @@ export const updateCategory = async (req, res, next) => {
     category.description = description || category.description;
 
     const updatedCategory = await category.save().catch((error) => {
-        console.error('Error saving updated category:', error.message);
         return next({ statusCode: 500, message: 'Failed to update category', error: error.message });
     });
 

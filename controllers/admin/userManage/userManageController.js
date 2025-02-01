@@ -15,13 +15,11 @@ export const blockUser = async (req, res, next) => {
   const { id } = req.params;
 
   const user = await userModel.findById(id).catch((error) => {
-    console.error('Error finding user:', error);
     return next({ statusCode: 404, message: 'User not found' });
   });
 
   user.isBlocked = !user.isBlocked;
   await user.save().catch((error) => {
-    console.error('Error toggling user block status', error);
     return next({ statusCode: 500, message: 'Internal server error' });
   });
 

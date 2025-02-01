@@ -50,7 +50,6 @@ export const getUserWallet = async (req, res, next) => {
 export const updateWallet = async (req, res, next) => {
     const { userId } = req.params;
     const { amount, description, type, orderId } = req.body;
-    console.log('req body of wallet: ', req.body, req.params)
 
     if (!amount || !description || amount <= 0 || !['credit', 'debit'].includes(type) || !orderId) {
         return next({ statusCode: 400, message: 'Invalid input. Provide a valid amount, description, orderId, and type ("credit" or "debit").' })
@@ -83,7 +82,6 @@ export const updateWallet = async (req, res, next) => {
     });
 
     await wallet.save();
-    console.log('wallet created and also credited the amount here...')
 
     res.status(200).json({ message: 'Amount credited successfully', wallet: { balance: wallet.balance, transaction: wallet.transactions } });
 }

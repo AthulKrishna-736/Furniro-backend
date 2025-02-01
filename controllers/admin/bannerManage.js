@@ -3,7 +3,6 @@ import bannerModel from "../../models/bannerSchema.js";
 // Get banners
 export const getBanners = async (req, res, next) => {
   const banners = await bannerModel.find().sort({ createdAt: 1 }).catch((error) => {
-    console.error("Error fetching banners:", error.message);
     return next({ statusCode: 500, message: "Failed to retrieve banners", error: error.message });
   });
 
@@ -28,7 +27,6 @@ export const addBanners = async (req, res, next) => {
   });
 
   await banner.save().catch((error) => {
-    console.error('Error while adding the banners:', error);
     return next({ statusCode: 500, message: 'Banner adding failed. Please try again' });
   });
 
@@ -49,7 +47,6 @@ export const editBanner = async (req, res, next) => {
     { image: image, bannerLocation: bannerLocation },
     { new: true }
   ).catch((error) => {
-    console.error("Error while editing the banner image:", error);
     return next({ statusCode: 500, message: 'Failed to update the banner image. Please try again.' });
   });
 

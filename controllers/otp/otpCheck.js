@@ -11,7 +11,6 @@ export const otpCheck = async(req, res)=>{
             return res.status(404).json({ message:'Invalid OTP. Please try again.' })
         }
     } catch (error) {
-        console.log(error)
         res.status(500).json({ message:'Internal server error. Please try again later.' })
     }
 }
