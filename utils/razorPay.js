@@ -13,6 +13,8 @@ export const createOrder = async (req, res, next) => {
     try {
         const { amount, currency, userId } = req.body;
 
+        console.log('data razorpay: ', req.body)
+
         const options = {
             amount: amount * 100,
             currency: currency || 'INR',

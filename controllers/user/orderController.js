@@ -11,6 +11,8 @@ import categoryModel from '../../models/categorySchema.js';
 export const userOrders = async (req, res, next) => {
   const { userId, cartId, selectedAddress, paymentMethod, totalPrice, selectedCoupon, discountedPrice } = req.body;
 
+  console.log('user order req body: ', req.body)
+
   if (!cartId) {
     return next({ statusCode: 400, message: 'Cart is empty' });
   }
