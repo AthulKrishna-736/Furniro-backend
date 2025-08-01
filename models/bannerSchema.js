@@ -2,13 +2,13 @@ import mongoose from "mongoose";
 
 
 const bannerSchema = mongoose.Schema({
-    bannerLocation:{
-        type:String,
+    bannerLocation: {
+        type: String,
     },
-    image:{
-        type:String,
+    image: {
+        type: String,
     }
-},{ timestamps: true })
+}, { timestamps: true })
 
 const bannerModel = mongoose.model('banner', bannerSchema)
 

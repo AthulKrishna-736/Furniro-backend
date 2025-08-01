@@ -3,12 +3,12 @@ import mongoose from "mongoose";
 const categoryOfferSchema = new mongoose.Schema({
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category', 
+    ref: 'Category',
     required: true,
   },
   discountType: {
     type: String,
-    enum: ['flat', 'percentage'], 
+    enum: ['flat', 'percentage'],
     required: true,
   },
   discountValue: {

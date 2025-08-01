@@ -157,7 +157,7 @@ export const getAllCoupons = async (req, res, next) => {
 //get user coupons
 export const getUserCoupons = async (req, res, next) => {
   try {
-    const currentTime = new Date(); 
+    const currentTime = new Date();
 
     const coupons = await couponModel
       .find({ expiryDate: { $gte: currentTime } })

@@ -8,7 +8,7 @@ export const generateSalesReport = async (req, res, next) => {
     const { filter, page = 1, startDate, endDate } = req.query;
     const now = new Date();
     let calculatedStartDate;
-    
+
     switch (filter) {
         case "daily":
             // Start of the current day (00:00:00)
@@ -27,7 +27,7 @@ export const generateSalesReport = async (req, res, next) => {
             calculatedStartDate = new Date(0);
             break;
     }
-    
+
 
     // Use custom date range if provided
     const queryStartDate = startDate ? new Date(startDate) : calculatedStartDate;

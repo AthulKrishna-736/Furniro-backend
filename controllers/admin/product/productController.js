@@ -1,4 +1,3 @@
-import categoryModel from "../../../models/categorySchema.js";
 import catOfferModel from "../../../models/catOffers.js";
 import productModel from "../../../models/productSchema.js";
 
@@ -217,7 +216,7 @@ export const productDetails = async (req, res, next) => {
 
         return {
           ...recProduct.toObject(),
-          salesPrice: recAdjustedPrice, 
+          salesPrice: recAdjustedPrice,
         };
       })
     );

@@ -6,14 +6,14 @@ import dotenv from 'dotenv'
 dotenv.config();
 
 //otpStore
-const otpStore = new Map(); 
+const otpStore = new Map();
 
 //create otp 
 export const createOtp = async (req, res, next) => {
   const { email, isSignup } = req.body;
 
-  if(!email){
-    return next({ statusCode: 404, message:'email is not found' });
+  if (!email) {
+    return next({ statusCode: 404, message: 'email is not found' });
   }
 
   if (!isSignup) {
@@ -55,8 +55,8 @@ export const createOtp = async (req, res, next) => {
     `,
   };
 
-  transporter.sendMail(mailOptions, (error, 
-    
+  transporter.sendMail(mailOptions, (error,
+
   ) => {
     if (error) {
       return next({ statusCode: 500, message: 'Internal server error. Please try again later.' });
@@ -112,7 +112,7 @@ export const resendOtp = async (req, res, next) => {
 
   const otp = crypto.randomInt(100000, 999999);
   const otpExpireAt = new Date();
-  otpExpireAt.setMinutes(otpExpireAt.getMinutes() + 2); 
+  otpExpireAt.setMinutes(otpExpireAt.getMinutes() + 2);
   otpStore.set(email, { otp, otpExpireAt });
 
   setTimeout(() => otpStore.delete(email), 2 * 60 * 1000);

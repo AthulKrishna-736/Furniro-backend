@@ -19,8 +19,8 @@ const categorySchema = mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CategoryOffer',
     },
- 
-},{ timestamps: true })
+
+}, { timestamps: true })
 
 
 const categoryModel = mongoose.model('Category', categorySchema);

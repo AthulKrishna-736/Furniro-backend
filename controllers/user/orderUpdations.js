@@ -51,9 +51,9 @@ export const cancelOrder = async (req, res, next) => {
 
         refundAmount = Math.round(refundAmount * 100) / 100;
 
-        if (refundAmount > 0 && 
-           ((order.payment === 'Wallet' && order.paymentStatus === 'Completed') ||
-            (order.payment === 'Razorpay' && order.paymentStatus === 'Completed'))
+        if (refundAmount > 0 &&
+            ((order.payment === 'Wallet' && order.paymentStatus === 'Completed') ||
+                (order.payment === 'Razorpay' && order.paymentStatus === 'Completed'))
         ) {
             const wallet = await walletModel.findOne({ userId: order.userId });
 

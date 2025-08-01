@@ -1,6 +1,5 @@
 import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
-import crypto from 'crypto';
 
 dotenv.config();
 
@@ -16,33 +15,8 @@ export const generateAccessToken = (user) => {
 export const generateRefreshToken = (user) => {
     return jwt.sign({ userId: user._id, version: user.tokenVersion }, process.env.JWT_REFRESH_SECRET, { expiresIn: `${tokenExpireTime.refreshToken}s` })
 }
-  
-export const generateCsrfToken = ()=>{
-    return crypto.randomBytes(32).toString('hex');
-}
 
-export const setCsrfCookie = (res, csrfToken) => {
-    const isSecureCookie = process.env.COOKIE === 'true';
-    const signedToken = crypto
-    .createHmac('sha256', process.env.CSRF_SECRET)
-    .update(csrfToken)
-    .digest('hex');
-
-    res.cookie('csrfToken', csrfToken, {
-        httpOnly: false,
-        secure: isSecureCookie,
-        sameSite: 'strict',
-    });
-
-    res.cookie('csrfTokenSigned', signedToken, {
-        httpOnly: true,
-        secure: isSecureCookie,
-        sameSite: 'strict',
-    })
-}
-
-export const setAuthCookies = (res, accessToken, refreshToken) => {  
-    const csrfToken = generateCsrfToken();
+export const setAuthCookies = (res, accessToken, refreshToken) => {
 
     const isSecureCookie = process.env.COOKIE === 'true';
     res.cookie('accessToken', accessToken, {
@@ -57,6 +31,4 @@ export const setAuthCookies = (res, accessToken, refreshToken) => {
         sameSite: 'strict',
         maxAge: tokenExpireTime.refreshToken * 1000,
     })
-
-    setCsrfCookie(res, csrfToken);
 }

@@ -3,9 +3,9 @@ import mongoose from 'mongoose';
 const addressSchema = new mongoose.Schema(
   {
     user: {
-      type: mongoose.Schema.Types.ObjectId, 
+      type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true, 
+      required: true,
     },
     name: {
       type: String,
@@ -25,7 +25,7 @@ const addressSchema = new mongoose.Schema(
     state: {
       type: String,
     },
-    altPhoneNumber:{
+    altPhoneNumber: {
       type: String,
     },
     type: {
@@ -33,7 +33,7 @@ const addressSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
-); 
+);
 
 const addressModel = mongoose.model('Address', addressSchema);
 

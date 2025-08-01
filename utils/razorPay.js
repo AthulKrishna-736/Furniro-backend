@@ -22,7 +22,7 @@ export const createOrder = async (req, res, next) => {
         };
 
         if (!amount || !currency || !userId) {
-           return res.status(400).json({ statusCode: 400, message: 'Missing fields required' })
+            return res.status(400).json({ statusCode: 400, message: 'Missing fields required' })
         }
 
         const user = await userModel.findById(userId);
@@ -35,7 +35,7 @@ export const createOrder = async (req, res, next) => {
         res.status(201).json({ order, user });
     } catch (error) {
         console.log('error on razorpay order creating: ', error);
-         next({ statusCode: 500, message: 'Error creating razorpay order', error: error.message })
+        next({ statusCode: 500, message: 'Error creating razorpay order', error: error.message })
     }
 }
 

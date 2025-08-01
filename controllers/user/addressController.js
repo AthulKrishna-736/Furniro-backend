@@ -31,11 +31,11 @@ export const addAddress = async (req, res, next) => {
 
 //get address
 export const getAddress = async (req, res, next) => {
-  const { userId } = req.params; 
+  const { userId } = req.params;
 
   const addresses = await addressModel.find({ user: userId });
   if (!addresses.length) {
-      return next({ statusCode: 404, message: 'No addresses found. Please add' });
+    return next({ statusCode: 404, message: 'No addresses found. Please add' });
   }
 
   res.status(200).json({ message: 'Addresses retrieved successfully', addresses });
@@ -47,7 +47,7 @@ export const deleteAddress = async (req, res, next) => {
 
   const deletedAddress = await addressModel.findByIdAndDelete(Id);
   if (!deletedAddress) {
-      return next({ statusCode: 404, message: 'Address not found' });
+    return next({ statusCode: 404, message: 'Address not found' });
   }
 
   res.status(200).json({ message: 'Address deleted successfully' });
@@ -59,11 +59,11 @@ export const updateAddress = async (req, res, next) => {
   const updateData = req.body;
 
   if (!id) {
-      return next({ statusCode: 400, message: 'Address ID is required' });
+    return next({ statusCode: 400, message: 'Address ID is required' });
   }
 
   const existingAddress = await addressModel.findById(id);
-  if(!existingAddress) {
+  if (!existingAddress) {
     return next({ statusCode: 404, message: 'Address not found' });
   }
 
@@ -71,23 +71,23 @@ export const updateAddress = async (req, res, next) => {
     (key) => updateData[key] !== existingAddress[key]?.toString() // Convert to string for safe comparison
   );
 
-  if(!hasChanges) {
-    return next({ statusCode:200, message:'No changes detected' })
+  if (!hasChanges) {
+    return next({ statusCode: 200, message: 'No changes detected' })
   }
 
   const updatedAddress = await addressModel.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true }
+    id,
+    { $set: updateData },
+    { new: true }
   );
 
 
   if (!updatedAddress) {
-      return next({ statusCode: 404, message: 'Address not found' });
+    return next({ statusCode: 404, message: 'Address not found' });
   }
 
   res.status(200).json({
-      message: 'Address updated successfully',
-      address: updatedAddress,
+    message: 'Address updated successfully',
+    address: updatedAddress,
   });
 };

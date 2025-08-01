@@ -36,6 +36,6 @@ app.use('/api/admin', adminRoute);
 //error handling middleware
 app.use(errorHandler);
 
-app.listen(PORT,()=>{
+app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 })

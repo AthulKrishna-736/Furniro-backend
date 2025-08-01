@@ -129,7 +129,7 @@ export const getCart = async (req, res, next) => {
           productId: product._id,
           name: product.name,
         });
-        item.price = product.salesPrice;  
+        item.price = product.salesPrice;
         cartUpdated = true;
       }
 
@@ -140,7 +140,7 @@ export const getCart = async (req, res, next) => {
           name: product.name,
           categoryName: category.name,
         });
-        item.price = product.salesPrice; 
+        item.price = product.salesPrice;
         cartUpdated = true;
       }
 
